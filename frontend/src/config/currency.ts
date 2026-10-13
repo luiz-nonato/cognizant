@@ -1,4 +1,5 @@
 import type { CurrencyCode } from '../api/types'
+import { localeToBcp47, type Locale } from '../i18n/messages'
 
 const SYMBOLS: Record<CurrencyCode, string> = {
   USD: '$',
@@ -23,11 +24,22 @@ export function currencySymbol(code: CurrencyCode = resolveCurrencyCode()): stri
 export function formatMoney(
   amount: number,
   code: CurrencyCode = resolveCurrencyCode(),
+  locale: Locale = 'en',
 ): string {
   const symbol = currencySymbol(code)
-  const formatted = amount.toLocaleString('en-US', {
+  const formatted = amount.toLocaleString(localeToBcp47(locale), {
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
   })
   return `${symbol}${formatted}`
+}
+
+export function formatPercent(
+  ratio: number | null | undefined,
+  locale: Locale = 'en',
+): string {
+  if (ratio == null || Number.isNaN(ratio)) return '—'
+  return `${(ratio * 100).toLocaleString(localeToBcp47(locale), {
+    maximumFractionDigits: 1,
+  })}%`
 }

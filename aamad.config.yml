@@ -1,4 +1,4 @@
-# AAMAD project configuration — BusinessFlow Week 3 foundation
+# AAMAD project configuration — Nexo Custo (Week 3 foundation)
 # Copied from aamad.config.example.yml; libraries pinned to operator stack.
 # See .cursor/templates/aamad-config-template.yml for schema comments.
 
@@ -27,9 +27,15 @@ libraries:
   forbidden: []
 
 ui:
+  # Appearance: light | dark | system. Default system; FE must offer toggle and persist in browser (PRD DEC-21 / FR-THEME).
   theme: system
+  # Visual language: minimal / calm (sparse chrome, space hierarchy; avoid decorative cards/shadows/pills) — PRD DEC-23.
   visual_style: minimal
+  # Default: prefer non-modal flows. PRD DEC-25 / PA22 exception: focused dialog allowed ONLY for recipe-line stock warnings (on-hand 0 or missing stock row).
+  # Prefer inline panels for confirmations. Operator UX (2026-10-13): create/edit
+  # catalog and order forms use focused dialogs; stock warnings also use dialogs (DEC-25).
   prefer_modals: false
+  # UI locales EN (default) / PT / ES are product requirements (PRD DEC-22 / FR-I18N), not separate config keys in this schema.
 
 coding_standards:
   style_guide: ""

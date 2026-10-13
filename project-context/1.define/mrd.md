@@ -1,4 +1,4 @@
-# Market Research Document — BusinessFlow
+# Market Research Document — Nexo Custo
 
 Mini ERP for small and medium entrepreneurs.
 
@@ -46,7 +46,7 @@ Mini ERP for small and medium entrepreneurs.
 
 | Key | Value |
 | --- | --- |
-| product_name | BusinessFlow |
+| product_name | Nexo Custo (formerly BusinessFlow; PRD DEC-26) |
 | product_type | Mini ERP (recipe costing + ops; not full ERP) |
 | audience | Small and medium entrepreneurs who make products |
 | artifact | `project-context/1.define/mrd.md` |
@@ -681,7 +681,7 @@ Vendor and analyst landing pages are directional, not purchased full reports (A1
 | A2 | Inputs | No system-description.md or prd.md at first authoring; S25 is the system description | Reconcile PRD with elicitation |
 | A3 | Runtime | Target runtime is crewai | Rebuild adapter YAML; domain unchanged |
 | A4 | MRD scope | Market-facing; MRD not skipped | Move skip rationale to PRD |
-| A5 | Brand | Product name is BusinessFlow | Rename artifacts |
+| A5 | Brand | **Superseded by PRD DEC-26** — product name is **Nexo Custo** (was BusinessFlow) | Revert brand |
 | A6 | MVP shape | Single location, single currency, owner-primary user | Add warehouse/FX/RBAC |
 | A7 | Domain | **Superseded for P0 by PRD DEC-12** (one-level BOM). Two-level only if PRD FR-BOM2 (P1) is in scope. Original: at most two levels. | Nested BOM in P0 without FR-BOM2 |
 | A8 | Agents | Chat is in scope; numbers still come from a deterministic engine | Chat can slip; engine cannot |

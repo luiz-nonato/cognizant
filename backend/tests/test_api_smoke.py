@@ -161,6 +161,78 @@ def test_create_recipe_uom_mismatch_ec016(client):
     assert err["details"]["material_uom"] == "kg"
 
 
+def test_create_material_curated_uom_dec24(client):
+    """DEC-24: material create accepts curated UoM; rejects free-text UoM."""
+    ok = client.post(
+        "/materials",
+        json={
+            "name": "Cocoa butter",
+            "uom": "pack",
+            "list_price": 12.5,
+            "reorder_point": 2,
+        },
+    )
+    assert ok.status_code == 201, ok.text
+    body = ok.json()
+    assert body["name"] == "Cocoa butter"
+    assert body["uom"] == "pack"
+    assert body["id"]
+
+    inv = client.get("/inventory")
+    assert inv.status_code == 200
+    row = next(r for r in inv.json() if r["sku"] == body["id"] and r["item_type"] == "RM")
+    assert row["on_hand"] == 0.0
+
+    bad = client.post(
+        "/materials",
+        json={
+            "name": "Mystery unit",
+            "uom": "bag",
+            "list_price": 1.0,
+            "reorder_point": 0,
+        },
+    )
+    assert bad.status_code == 422
+
+
+def test_create_recipe_from_catalog_materials(client):
+    """DEC-25: recipe create selects existing materials with matching UoM."""
+    sugar = client.post(
+        "/materials",
+        json={
+            "id": "mat-sugar-catalog",
+            "name": "Sugar",
+            "uom": "kg",
+            "list_price": 3.0,
+            "reorder_point": 1,
+        },
+    )
+    assert sugar.status_code == 201, sugar.text
+
+    recipe = client.post(
+        "/recipes",
+        json={
+            "name": "Simple syrup",
+            "yield": 4.0,
+            "target_margin": 0.3,
+            "finished_product_sku": "FG-SYRUP-001",
+            "lines": [
+                {"material_id": "mat-sugar-catalog", "quantity": 2.0, "uom": "kg"},
+            ],
+        },
+    )
+    assert recipe.status_code == 201, recipe.text
+    body = recipe.json()
+    assert body["name"] == "Simple syrup"
+    assert body["lines"][0]["material_id"] == "mat-sugar-catalog"
+
+    costing = client.get(f"/recipes/{body['id']}/costing")
+    assert costing.status_code == 200
+    snap = costing.json()
+    assert snap["total_material_cost"] == 6.0
+    assert snap["unit_cost"] == 1.5
+
+
 def test_zero_cost_recipe_via_api_ec017(client):
     """EC-017: unit_cost 0 → recommended_sell_price numeric 0 (+ DEC-16 label)."""
     mat = client.post(

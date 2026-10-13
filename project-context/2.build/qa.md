@@ -1,4 +1,4 @@
-# BusinessFlow — QA Report (Week 3 Slice)
+﻿# Nexo Custo — QA Report (Week 3 Slice)
 
 Persona: `@qa.eng` (`qa-eng`)  
 Actions: `test-unit`, `test-integration`, `qa` / `verify-flow`, `log-defects`  

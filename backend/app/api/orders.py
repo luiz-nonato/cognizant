@@ -26,6 +26,7 @@ def _to_out(order: Order) -> OrderOut:
         status=order.status,
         cost_at_sale=order.cost_at_sale,
         revenue=order.revenue,
+        payment_method=order.payment_method,
         created_at=order.created_at.isoformat(),
         completed_at=order.completed_at.isoformat() if order.completed_at else None,
     )
@@ -85,6 +86,7 @@ async def create_order(
             recipe_id=body.recipe_id,
             quantity=body.quantity,
             sell_price=body.sell_price,
+            payment_method=body.payment_method,
         )
     except (InventoryError, CostingError) as exc:
         raise _http_for_domain(exc) from exc

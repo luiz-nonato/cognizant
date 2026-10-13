@@ -1,4 +1,4 @@
-# BusinessFlow — Deploy Runbook (Week 3 MVP Slice)
+﻿# Nexo Custo — Deploy Runbook (Week 3 MVP Slice)
 
 Persona: `@devops.eng` (`devops-eng`)  
 Actions: `prepare-release`, `define-deploy`, `configure-cicd`, `document-deploy`  
@@ -172,7 +172,7 @@ Manual promotion: not applicable until operator authorizes a non-local target. R
 | Bad local code / UI | `git checkout` / revert to last known good SHA; restart uvicorn + Vite |
 | Compose stack unhealthy | `docker compose down`; restore prior image tags or rebuild from known SHA; `docker compose up -d --build` |
 | Bad env | Restore `.env` from operator backup; never commit secrets |
-| Data | Week 3 API is **in-memory** — process restart loses runtime creates; seed reloads. Compose `db` volume `businessflow_pgdata` unused by Week 3 API — document local data-loss risk (SAD §5) |
+| Data | Week 3 API is **in-memory** — process restart loses runtime creates; seed reloads. Compose `db` volume `Nexo Custo_pgdata` unused by Week 3 API — document local data-loss risk (SAD §5) |
 
 ---
 

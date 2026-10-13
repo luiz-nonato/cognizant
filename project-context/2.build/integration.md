@@ -1,4 +1,4 @@
-# BusinessFlow — Integration (Week 3 + Sprint 4)
+﻿# Nexo Custo — Integration (Week 3 + Sprint 4)
 
 Persona: `@integration.eng` (`integration-eng`)  
 Actions: `integrate-api`, `verify-messageflow`, `log-integration`  

@@ -156,6 +156,7 @@ def _order_to_dict(order: Any) -> dict[str, Any]:
         "status": order.status,
         "cost_at_sale": order.cost_at_sale,
         "revenue": order.revenue,
+        "payment_method": getattr(order, "payment_method", None),
         "created_at": order.created_at.isoformat(),
         "completed_at": (
             order.completed_at.isoformat() if order.completed_at else None
@@ -210,6 +211,7 @@ def _execute_action(
         recipe_id = payload.get("recipe_id")
         quantity = payload.get("quantity")
         sell_price = payload.get("sell_price")
+        payment_method = payload.get("payment_method")
         if not isinstance(recipe_id, str) or not recipe_id:
             raise InventoryError(
                 "invalid_payload",
@@ -227,6 +229,7 @@ def _execute_action(
             recipe_id=recipe_id,
             quantity=float(quantity),
             sell_price=float(sell_price) if sell_price is not None else None,
+            payment_method=str(payment_method) if payment_method else None,
         )
         return _order_to_dict(order)
 

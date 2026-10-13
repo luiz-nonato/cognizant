@@ -1,4 +1,4 @@
-# AAMAD MVP System Architecture Document (SAD) — BusinessFlow
+# AAMAD MVP System Architecture Document (SAD) — Nexo Custo
 
 ## Context & Instructions
 Generate a system architecture specification for a multi-agent MVP.

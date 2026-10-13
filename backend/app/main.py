@@ -11,7 +11,17 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api import copilot, external, health, hitl, inventory, materials, orders, recipes
+from app.api import (
+    copilot,
+    dashboard,
+    external,
+    health,
+    hitl,
+    inventory,
+    materials,
+    orders,
+    recipes,
+)
 from app.api.errors import error_payload
 from app.settings import get_settings
 
@@ -66,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(recipes.router)
     app.include_router(inventory.router)
     app.include_router(orders.router)
+    app.include_router(dashboard.router)
     app.include_router(hitl.router)
     app.include_router(external.router)
     app.include_router(copilot.router)

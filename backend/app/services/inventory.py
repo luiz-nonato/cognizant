@@ -164,6 +164,7 @@ def create_order(
     recipe_id: str,
     quantity: float,
     sell_price: float | None = None,
+    payment_method: str | None = None,
 ) -> Order:
     """Create pending order; default sell price to recommended (DEC-17)."""
     if quantity <= 0:
@@ -196,6 +197,14 @@ def create_order(
             {"sell_price": sell_price},
         )
 
+    allowed_payments = {"cash", "card", "pix", "bank_transfer", "other", None}
+    if payment_method not in allowed_payments:
+        raise InventoryError(
+            "invalid_payment_method",
+            "Unsupported payment method",
+            {"payment_method": payment_method},
+        )
+
     # Ensure FG stock row exists (on-hand unchanged).
     _ensure_stock(repo, "FG", recipe.finished_product_sku)
     order = Order(
@@ -205,6 +214,7 @@ def create_order(
         quantity=float(quantity),
         sell_price=float(sell_price),
         status="pending",
+        payment_method=payment_method,  # type: ignore[arg-type]
         created_at=utc_now(),
     )
     return repo.upsert_order(order)

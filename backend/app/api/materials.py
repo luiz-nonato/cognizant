@@ -66,3 +66,37 @@ async def create_material(
     )
     saved = repo.upsert_material(material)
     return _to_out(saved)
+
+
+@router.put("/{material_id}", response_model=MaterialOut)
+async def update_material(
+    material_id: str,
+    body: MaterialCreate,
+    repo: InMemoryRepository = Depends(get_repository),
+) -> MaterialOut:
+    existing = repo.get_material(material_id)
+    if existing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_payload(
+                "material_not_found",
+                f"Material {material_id} not found",
+                {"material_id": material_id},
+            ),
+        )
+    material = Material(
+        id=material_id,
+        name=body.name,
+        uom=body.uom,
+        list_price=body.list_price,
+        reorder_point=body.reorder_point,
+        last_purchase_price=(
+            body.last_purchase_price
+            if body.last_purchase_price is not None
+            else existing.last_purchase_price
+        ),
+        purchases=existing.purchases,
+        supplier_id=existing.supplier_id,
+    )
+    saved = repo.upsert_material(material)
+    return _to_out(saved)

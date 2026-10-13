@@ -1,49 +1,59 @@
 import type { CostingSnapshot } from '../api/types'
-import { formatMoney } from '../config/currency'
+import { formatMoney, resolveCurrencyCode } from '../config/currency'
+import {
+  formatCostMethod,
+  formatDemoMaterialName,
+  formatUom,
+} from '../i18n/formatters'
+import { useI18n } from '../i18n/I18nProvider'
 
 interface CostStackProps {
   costing: CostingSnapshot
 }
 
 export function CostStack({ costing }: CostStackProps) {
+  const { t, locale } = useI18n()
+  const currency = resolveCurrencyCode()
+  const money = (n: number) => formatMoney(n, currency, locale)
   const showZeroLabel =
     costing.unit_cost === 0 ||
     costing.recommended_price_label === 'n/a / zero cost'
 
   return (
     <div className="cost-stack">
-      <h3>Cost stack / engine figures</h3>
+      <h3>{t('recipe.costStack')}</h3>
       <p className="muted method-label">
-        Cost method: {costing.input_unit_cost_method}
+        {t('recipe.costMethod')}:{' '}
+        {formatCostMethod(costing.input_unit_cost_method, t)}
       </p>
 
       <dl className="detail-grid compact">
         <div>
-          <dt>Total material cost</dt>
-          <dd>{formatMoney(costing.total_material_cost)}</dd>
+          <dt>{t('recipe.totalMaterial')}</dt>
+          <dd>{money(costing.total_material_cost)}</dd>
         </div>
         <div>
-          <dt>Unit cost</dt>
-          <dd>{formatMoney(costing.unit_cost)}</dd>
+          <dt>{t('recipe.unitCost')}</dt>
+          <dd>{money(costing.unit_cost)}</dd>
         </div>
         <div>
-          <dt>Target margin (% of sell price)</dt>
+          <dt>{t('recipe.targetMargin')}</dt>
           <dd>{(costing.target_margin * 100).toFixed(0)}%</dd>
         </div>
         <div>
-          <dt>Recommended sell price</dt>
+          <dt>{t('recipe.recommended')}</dt>
           <dd>
             {showZeroLabel ? (
               <span className="zero-cost-label" data-testid="zero-cost-label">
-                n/a / zero cost
+                {t('cost.zeroLabel')}
               </span>
             ) : (
-              formatMoney(costing.recommended_sell_price)
+              money(costing.recommended_sell_price)
             )}
             {showZeroLabel && (
               <span className="muted numeric-hint">
                 {' '}
-                (API value: {costing.recommended_sell_price})
+                ({costing.recommended_sell_price})
               </span>
             )}
           </dd>
@@ -51,25 +61,31 @@ export function CostStack({ costing }: CostStackProps) {
       </dl>
 
       <table className="data-table">
-        <caption>Line contributions</caption>
+        <caption>{t('recipe.costStack')}</caption>
         <thead>
           <tr>
-            <th scope="col">Material</th>
-            <th scope="col">Qty</th>
-            <th scope="col">Input unit cost</th>
-            <th scope="col">Line cost</th>
-            <th scope="col">Contribution</th>
+            <th scope="col">{t('material.name')}</th>
+            <th scope="col">{t('orders.qty')}</th>
+            <th scope="col">{t('inventory.unitCost')}</th>
+            <th scope="col">{t('dashboard.cogs')}</th>
+            <th scope="col">{t('dashboard.margin')}</th>
           </tr>
         </thead>
         <tbody>
           {costing.lines.map((line) => (
             <tr key={`${line.material_id}-${line.quantity}`}>
-              <td>{line.material_name}</td>
               <td>
-                {line.quantity} {line.uom}
+                {formatDemoMaterialName(
+                  line.material_id,
+                  line.material_name,
+                  t,
+                )}
               </td>
-              <td>{formatMoney(line.input_unit_cost)}</td>
-              <td>{formatMoney(line.line_cost)}</td>
+              <td>
+                {line.quantity} {formatUom(line.uom, t)}
+              </td>
+              <td>{money(line.input_unit_cost)}</td>
+              <td>{money(line.line_cost)}</td>
               <td>{line.contribution_pct.toFixed(1)}%</td>
             </tr>
           ))}

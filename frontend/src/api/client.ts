@@ -11,14 +11,17 @@ import type {
   CopilotChatRequest,
   CopilotChatResponse,
   CostingSnapshot,
+  DashboardSnapshot,
   FoodProductSearchResponse,
   HitlProposal,
   HitlProposalCreate,
   HitlStatus,
   InventoryItem,
   Material,
+  MaterialCreate,
   Order,
   Recipe,
+  RecipeCreate,
 } from './types'
 import {
   COSTING_BREAD,
@@ -138,11 +141,35 @@ export function createLiveApiClient(baseUrl: string): BusinessFlowApiClient {
     async getMaterial(id) {
       return request<Material>(`/materials/${encodeURIComponent(id)}`)
     },
+    async createMaterial(body: MaterialCreate) {
+      return request<Material>('/materials', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+    },
+    async updateMaterial(id, body: MaterialCreate) {
+      return request<Material>(`/materials/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      })
+    },
     async getRecipes() {
       return request<Recipe[]>('/recipes')
     },
     async getRecipe(id) {
       return request<Recipe>(`/recipes/${encodeURIComponent(id)}`)
+    },
+    async createRecipe(body: RecipeCreate) {
+      return request<Recipe>('/recipes', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+    },
+    async updateRecipe(id, body: RecipeCreate) {
+      return request<Recipe>(`/recipes/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      })
     },
     async getRecipeCosting(id) {
       return request<CostingSnapshot>(
@@ -194,6 +221,66 @@ export function createLiveApiClient(baseUrl: string): BusinessFlowApiClient {
         `/external/food-products?q=${encodeURIComponent(query)}`,
       )
     },
+    async getDashboard() {
+      return request<DashboardSnapshot>('/dashboard')
+    },
+  }
+}
+
+function buildMockDashboard(): DashboardSnapshot {
+  const completed = mockOrders.filter((o) => o.status === 'completed')
+  let revenue = 0
+  let cogs = 0
+  const bySku = new Map<
+    string,
+    { fg_sku: string; name: string; revenue: number; cogs: number }
+  >()
+  for (const order of completed) {
+    const rev = order.revenue ?? order.quantity * order.sell_price
+    const lineCogs = (order.cost_at_sale ?? 0) * order.quantity
+    revenue += rev
+    cogs += lineCogs
+    const row = bySku.get(order.fg_sku) ?? {
+      fg_sku: order.fg_sku,
+      name: order.fg_sku,
+      revenue: 0,
+      cogs: 0,
+    }
+    row.revenue += rev
+    row.cogs += lineCogs
+    bySku.set(order.fg_sku, row)
+  }
+  const profit = revenue - cogs
+  const alerts = mockInventory
+    .filter((i) => i.on_hand <= i.reorder_point)
+    .map((i) => ({
+      item_type: i.item_type,
+      sku: i.sku,
+      name: i.name,
+      on_hand: i.on_hand,
+      reorder_point: i.reorder_point,
+      uom: i.uom,
+    }))
+  return {
+    period: 'all_time',
+    revenue,
+    cogs,
+    profit,
+    margin_pct: revenue > 0 ? profit / revenue : null,
+    low_stock_count: alerts.length,
+    low_stock_alerts: alerts,
+    orders: {
+      pending: mockOrders.filter((o) => o.status === 'pending').length,
+      in_progress: mockOrders.filter((o) => o.status === 'in_progress').length,
+      completed: completed.length,
+    },
+    top_products: [...bySku.values()]
+      .map((r) => ({
+        ...r,
+        profit: r.revenue - r.cogs,
+        margin_pct: r.revenue > 0 ? (r.revenue - r.cogs) / r.revenue : null,
+      }))
+      .sort((a, b) => b.profit - a.profit),
   }
 }
 
@@ -210,11 +297,204 @@ export function createMockApiClient(): BusinessFlowApiClient {
     async getMaterial(id) {
       return materialsById[id] ?? notFound('Material', id)
     },
+    async createMaterial(body: MaterialCreate) {
+      const id = body.id?.trim() || `mat-mock-${Object.keys(materialsById).length + 1}`
+      const material: Material = {
+        id,
+        name: body.name,
+        uom: body.uom,
+        list_price: body.list_price,
+        reorder_point: body.reorder_point ?? 0,
+        last_purchase_price: body.last_purchase_price ?? null,
+      }
+      materialsById[id] = material
+      mockInventory = [
+        {
+          item_type: 'RM',
+          sku: id,
+          name: material.name,
+          uom: material.uom,
+          on_hand: 0,
+          reorder_point: material.reorder_point,
+          unit_cost: material.list_price,
+        },
+        ...mockInventory.filter((r) => !(r.item_type === 'RM' && r.sku === id)),
+      ]
+      return { ...material }
+    },
+    async updateMaterial(id, body: MaterialCreate) {
+      if (!materialsById[id]) notFound('Material', id)
+      const material: Material = {
+        id,
+        name: body.name,
+        uom: body.uom,
+        list_price: body.list_price,
+        reorder_point: body.reorder_point ?? 0,
+        last_purchase_price:
+          body.last_purchase_price ?? materialsById[id].last_purchase_price,
+      }
+      materialsById[id] = material
+      const existing = mockInventory.find((r) => r.item_type === 'RM' && r.sku === id)
+      mockInventory = [
+        {
+          item_type: 'RM',
+          sku: id,
+          name: material.name,
+          uom: material.uom,
+          on_hand: existing?.on_hand ?? 0,
+          reorder_point: material.reorder_point,
+          unit_cost: material.list_price,
+        },
+        ...mockInventory.filter((r) => !(r.item_type === 'RM' && r.sku === id)),
+      ]
+      return { ...material }
+    },
     async getRecipes() {
       return Object.values(recipesById)
     },
     async getRecipe(id) {
       return recipesById[id] ?? notFound('Recipe', id)
+    },
+    async createRecipe(body: RecipeCreate) {
+      for (const line of body.lines) {
+        const mat = materialsById[line.material_id]
+        if (!mat) notFound('Material', line.material_id)
+        if (line.uom !== mat.uom) {
+          throw new Error('uom_mismatch: Recipe line UoM must equal the material UoM')
+        }
+      }
+      const id = body.id?.trim() || `rcp-mock-${Object.keys(recipesById).length + 1}`
+      const recipe: Recipe = {
+        id,
+        name: body.name,
+        yield: body.yield,
+        target_margin: body.target_margin ?? 0,
+        finished_product_sku: body.finished_product_sku ?? null,
+        lines: body.lines.map((l) => ({ ...l })),
+      }
+      recipesById[id] = recipe
+
+      let total = 0
+      const lines = recipe.lines.map((line) => {
+        const mat = materialsById[line.material_id]!
+        const unit = mat.last_purchase_price ?? mat.list_price
+        const lineCost = unit * line.quantity
+        total += lineCost
+        return {
+          material_id: line.material_id,
+          material_name: mat.name,
+          quantity: line.quantity,
+          uom: line.uom,
+          input_unit_cost: unit,
+          line_cost: lineCost,
+          contribution_pct: 0,
+          input_unit_cost_method: 'list_price',
+        }
+      })
+      for (const line of lines) {
+        line.contribution_pct = total > 0 ? line.line_cost / total : 0
+      }
+      const unitCost = recipe.yield > 0 ? total / recipe.yield : 0
+      const margin = recipe.target_margin
+      const recommended =
+        unitCost === 0
+          ? 0
+          : margin > 0 && margin < 1
+            ? unitCost / (1 - margin)
+            : unitCost
+      costingByRecipeId[id] = {
+        recipe_id: id,
+        recipe_name: recipe.name,
+        finished_product_sku: recipe.finished_product_sku,
+        yield: recipe.yield,
+        target_margin: recipe.target_margin,
+        total_material_cost: total,
+        unit_cost: unitCost,
+        recommended_sell_price: recommended,
+        recommended_price_label: unitCost === 0 ? 'n/a / zero cost' : null,
+        input_unit_cost_method: 'list_price',
+        lines,
+        grounding_timestamp: mockNow(),
+      }
+
+      if (recipe.finished_product_sku) {
+        const sku = recipe.finished_product_sku
+        mockInventory = [
+          {
+            item_type: 'FG',
+            sku,
+            name: recipe.name,
+            uom: 'unit',
+            on_hand: 0,
+            reorder_point: 0,
+            unit_cost: unitCost,
+          },
+          ...mockInventory.filter((r) => !(r.item_type === 'FG' && r.sku === sku)),
+        ]
+      }
+      return { ...recipe, lines: recipe.lines.map((l) => ({ ...l })) }
+    },
+    async updateRecipe(id, body: RecipeCreate) {
+      if (!recipesById[id]) notFound('Recipe', id)
+      for (const line of body.lines) {
+        const mat = materialsById[line.material_id]
+        if (!mat) notFound('Material', line.material_id)
+        if (line.uom !== mat.uom) {
+          throw new Error('uom_mismatch: Recipe line UoM must equal the material UoM')
+        }
+      }
+      const recipe: Recipe = {
+        id,
+        name: body.name,
+        yield: body.yield,
+        target_margin: body.target_margin ?? 0,
+        finished_product_sku: body.finished_product_sku ?? null,
+        lines: body.lines.map((l) => ({ ...l })),
+      }
+      recipesById[id] = recipe
+      let total = 0
+      const lines = recipe.lines.map((line) => {
+        const mat = materialsById[line.material_id]!
+        const unit = mat.last_purchase_price ?? mat.list_price
+        const lineCost = unit * line.quantity
+        total += lineCost
+        return {
+          material_id: line.material_id,
+          material_name: mat.name,
+          quantity: line.quantity,
+          uom: line.uom,
+          input_unit_cost: unit,
+          line_cost: lineCost,
+          contribution_pct: 0,
+          input_unit_cost_method: 'list_price',
+        }
+      })
+      for (const line of lines) {
+        line.contribution_pct = total > 0 ? line.line_cost / total : 0
+      }
+      const unitCost = recipe.yield > 0 ? total / recipe.yield : 0
+      const margin = recipe.target_margin
+      const recommended =
+        unitCost === 0
+          ? 0
+          : margin > 0 && margin < 1
+            ? unitCost / (1 - margin)
+            : unitCost
+      costingByRecipeId[id] = {
+        recipe_id: id,
+        recipe_name: recipe.name,
+        finished_product_sku: recipe.finished_product_sku,
+        yield: recipe.yield,
+        target_margin: recipe.target_margin,
+        total_material_cost: total,
+        unit_cost: unitCost,
+        recommended_sell_price: recommended,
+        recommended_price_label: unitCost === 0 ? 'n/a / zero cost' : null,
+        input_unit_cost_method: 'list_price',
+        lines,
+        grounding_timestamp: mockNow(),
+      }
+      return { ...recipe, lines: recipe.lines.map((l) => ({ ...l })) }
     },
     async getRecipeCosting(id) {
       return costingByRecipeId[id] ?? notFound('Costing', id)
@@ -277,17 +557,24 @@ export function createMockApiClient(): BusinessFlowApiClient {
         }
       }
       if (proposal.action === 'order_create') {
+        const recipeId = String(proposal.payload.recipe_id ?? RECIPE_BREAD.id)
+        const recipe = recipesById[recipeId] ?? RECIPE_BREAD
+        const costing = costingByRecipeId[recipeId] ?? COSTING_BREAD
         const order: Order = {
           id: `ord-mock-${mockOrders.length + 1}`,
-          recipe_id: String(proposal.payload.recipe_id ?? RECIPE_BREAD.id),
-          fg_sku: 'FG-BREAD-001',
+          recipe_id: recipeId,
+          fg_sku:
+            String(proposal.payload.fg_sku ?? '') ||
+            recipe.finished_product_sku ||
+            'FG-BREAD-001',
           quantity: Number(proposal.payload.quantity ?? 1),
           sell_price: Number(
-            proposal.payload.sell_price ?? COSTING_BREAD.recommended_sell_price,
+            proposal.payload.sell_price ?? costing.recommended_sell_price,
           ),
           status: 'pending',
           cost_at_sale: null,
           revenue: null,
+          payment_method: (proposal.payload.payment_method as Order['payment_method']) ?? null,
           created_at: mockNow(),
           completed_at: null,
         }
@@ -336,6 +623,9 @@ export function createMockApiClient(): BusinessFlowApiClient {
     async searchFoodProducts(query: string) {
       return mockFoodProducts(query)
     },
+    async getDashboard() {
+      return buildMockDashboard()
+    },
   }
 }
 
@@ -363,9 +653,9 @@ export const apiClient: BusinessFlowApiClient = resolveApiClient()
 /** Documented endpoint map (paths relative to VITE_API_BASE_URL). */
 export const SPRINT4_ENDPOINTS = {
   health: 'GET /health',
-  materials: 'GET /materials',
+  materials: 'GET|POST /materials',
   materialById: 'GET /materials/{id}',
-  recipes: 'GET /recipes',
+  recipes: 'GET|POST /recipes',
   recipeById: 'GET /recipes/{id}',
   recipeCosting: 'GET /recipes/{id}/costing',
   inventory: 'GET /inventory',
@@ -374,6 +664,7 @@ export const SPRINT4_ENDPOINTS = {
   hitlApprove: 'POST /hitl/proposals/{id}/approve',
   hitlReject: 'POST /hitl/proposals/{id}/reject',
   foodProducts: 'GET /external/food-products?q=',
+  dashboard: 'GET /dashboard',
   copilotChat: 'POST /copilot/chat',
 } as const
 

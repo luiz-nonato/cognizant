@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiClient } from '../api/client'
 import type { HitlProposal } from '../api/types'
+import { useI18n } from '../i18n/I18nProvider'
 
 interface HitlPanelProps {
-  /** Bump to force a refresh after creating a proposal elsewhere. */
   refreshKey?: number
   onResolved?: () => void
 }
 
 export function HitlPanel({ refreshKey = 0, onResolved }: HitlPanelProps) {
+  const { t } = useI18n()
   const [pending, setPending] = useState<HitlProposal[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -22,11 +23,11 @@ export function HitlPanel({ refreshKey = 0, onResolved }: HitlPanelProps) {
       const rows = await apiClient.listHitlProposals('pending')
       setPending(rows)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load HITL queue')
+      setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -40,7 +41,7 @@ export function HitlPanel({ refreshKey = 0, onResolved }: HitlPanelProps) {
       await load()
       onResolved?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Approve failed')
+      setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
       setBusyId(null)
     }
@@ -49,7 +50,7 @@ export function HitlPanel({ refreshKey = 0, onResolved }: HitlPanelProps) {
   async function reject(id: string) {
     const feedback = (feedbackById[id] ?? '').trim()
     if (!feedback) {
-      setError('Reject requires feedback explaining why.')
+      setError(t('hitl.rejectNeedsFeedback'))
       return
     }
     setBusyId(id)
@@ -59,7 +60,7 @@ export function HitlPanel({ refreshKey = 0, onResolved }: HitlPanelProps) {
       await load()
       onResolved?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Reject failed')
+      setError(err instanceof Error ? err.message : t('common.error'))
     } finally {
       setBusyId(null)
     }
@@ -68,15 +69,12 @@ export function HitlPanel({ refreshKey = 0, onResolved }: HitlPanelProps) {
   return (
     <section className="panel hitl-panel" aria-labelledby="hitl-heading">
       <div className="panel-header-row">
-        <h2 id="hitl-heading">Human-in-the-loop</h2>
+        <h2 id="hitl-heading">{t('hitl.title')}</h2>
         <button type="button" onClick={() => void load()} disabled={loading}>
-          Refresh
+          {t('common.refresh')}
         </button>
       </div>
-      <p className="panel-lead">
-        Pending write proposals wait here. Approve executes the domain mutation;
-        reject records feedback and leaves stock/orders unchanged.
-      </p>
+      <p className="panel-lead">{t('hitl.lead')}</p>
 
       {error && (
         <p className="error" role="alert">
@@ -84,10 +82,10 @@ export function HitlPanel({ refreshKey = 0, onResolved }: HitlPanelProps) {
         </p>
       )}
 
-      {loading && <p className="muted">Loading pending proposals…</p>}
+      {loading && <p className="muted">{t('common.loading')}</p>}
 
       {!loading && pending.length === 0 && (
-        <p className="muted">No pending approvals.</p>
+        <p className="muted">{t('hitl.none')}</p>
       )}
 
       <ul className="hitl-list">
@@ -101,7 +99,7 @@ export function HitlPanel({ refreshKey = 0, onResolved }: HitlPanelProps) {
               {JSON.stringify(p.payload, null, 2)}
             </pre>
             <label className="hitl-feedback-label">
-              Feedback (required to reject)
+              {t('hitl.feedback')}
               <textarea
                 rows={2}
                 value={feedbackById[p.id] ?? ''}
@@ -111,7 +109,7 @@ export function HitlPanel({ refreshKey = 0, onResolved }: HitlPanelProps) {
                     [p.id]: e.target.value,
                   }))
                 }
-                placeholder="Optional note on approve; required on reject"
+                placeholder={t('hitl.feedbackPlaceholder')}
               />
             </label>
             <div className="hitl-actions">
@@ -121,14 +119,14 @@ export function HitlPanel({ refreshKey = 0, onResolved }: HitlPanelProps) {
                 disabled={busyId === p.id}
                 onClick={() => void approve(p.id)}
               >
-                Approve
+                {t('common.approve')}
               </button>
               <button
                 type="button"
                 disabled={busyId === p.id}
                 onClick={() => void reject(p.id)}
               >
-                Reject
+                {t('common.reject')}
               </button>
             </div>
           </li>

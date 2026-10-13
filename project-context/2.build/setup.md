@@ -1,4 +1,4 @@
-# BusinessFlow — Build Setup (Week 3 Foundation)
+﻿# Nexo Custo — Build Setup (Week 3 Foundation)
 
 Persona: `@project.mgr` (`project-mgr`)  
 Actions: `setup-project`, `install-dependencies`, `configure-env`, `document-setup`  

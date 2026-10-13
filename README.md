@@ -1,6 +1,6 @@
-# Cognizant — BusinessFlow
+# Cognizant — Nexo Custo
 
-Define-phase artifacts for **BusinessFlow**, a mini-ERP for small makers (recipe costing, dual inventory, three-state orders, dashboard, grounded multi-agent copilot).
+Define-phase artifacts for **Nexo Custo** (formerly BusinessFlow), a mini-ERP for small makers (recipe costing, dual inventory, three-state orders, dashboard, grounded multi-agent copilot).
 
 Built with the [AAMAD](https://github.com/synaptic-ai-consulting/AAMAD) multi-agent development framework.
 

@@ -1,4 +1,4 @@
-# BusinessFlow — Frontend (Week 3 Slice)
+﻿# Nexo Custo — Frontend (Week 3 Slice)
 
 Persona: `@frontend.eng` (`frontend-eng`)  
 Actions: `develop-fe`, `add-placeholders`, `style-ui`, `document-frontend`  
@@ -60,7 +60,7 @@ Optional env (Vite-prefixed; copy names into `frontend/.env` or root env loaded 
 frontend/src/
   App.tsx                 # Week 3 shell: load mock data, switch Material/Recipe
   api/types.ts            # Contracts matching backend.md schemas
-  api/client.ts           # BusinessFlowApiClient + createMockApiClient (+ live stub)
+  api/client.ts           # Nexo CustoApiClient + createMockApiClient (+ live stub)
   mocks/fixtures.ts       # Seed material/recipe/costing + zero-cost + mock reply
   config/currency.ts      # ADR-14 symbol formatting
   components/
@@ -85,7 +85,7 @@ frontend/src/
 
 1. Implement `createLiveApiClient(baseUrl)` in `frontend/src/api/client.ts` using `import.meta.env.VITE_API_BASE_URL`.
 2. Swap `export const apiClient = createMockApiClient()` for live (or env-gated) client.
-3. Keep `BusinessFlowApiClient` / types stable.
+3. Keep `Nexo CustoApiClient` / types stable.
 4. Map API `yield` JSON field to `Recipe.yield` / `CostingSnapshot.yield` (backend serialization alias).
 
 ### Expected Week 3 endpoints

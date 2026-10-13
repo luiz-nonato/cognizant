@@ -1,4 +1,4 @@
-# BusinessFlow — Security Assessment (Week 3 MVP Slice)
+﻿# Nexo Custo — Security Assessment (Week 3 MVP Slice)
 
 Persona: `@security.eng` (`security-eng`)  
 Actions: `assess-security`, `scan-secrets`, `review-deps`, `document-security`  

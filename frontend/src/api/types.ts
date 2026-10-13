@@ -28,6 +28,25 @@ export interface Material {
   supplier_id?: string | null
 }
 
+export interface MaterialCreate {
+  name: string
+  uom: string
+  list_price: number
+  reorder_point?: number
+  last_purchase_price?: number | null
+  id?: string
+}
+
+export interface RecipeCreate {
+  name: string
+  /** API field `yield` — finished-goods units produced. */
+  yield: number
+  target_margin?: number
+  finished_product_sku?: string | null
+  lines: RecipeLine[]
+  id?: string
+}
+
 export interface RecipeLine {
   material_id: string
   quantity: number
@@ -81,6 +100,13 @@ export interface InventoryItem {
   unit_cost: number | null
 }
 
+export type PaymentMethod =
+  | 'cash'
+  | 'card'
+  | 'pix'
+  | 'bank_transfer'
+  | 'other'
+
 export interface Order {
   id: string
   recipe_id: string
@@ -90,6 +116,7 @@ export interface Order {
   status: OrderStatus
   cost_at_sale: number | null
   revenue: number | null
+  payment_method?: PaymentMethod | null
   created_at: string
   completed_at: string | null
 }
@@ -130,6 +157,42 @@ export interface FoodProductSearchResponse {
   products: FoodProductSuggestion[]
 }
 
+export interface OrderPipelineCounts {
+  pending: number
+  in_progress: number
+  completed: number
+}
+
+export interface ProductProfitRow {
+  fg_sku: string
+  name: string
+  revenue: number
+  cogs: number
+  profit: number
+  margin_pct: number | null
+}
+
+export interface LowStockAlert {
+  item_type: ItemType
+  sku: string
+  name: string
+  on_hand: number
+  reorder_point: number
+  uom: string
+}
+
+export interface DashboardSnapshot {
+  period: string
+  revenue: number
+  cogs: number
+  profit: number
+  margin_pct: number | null
+  low_stock_count: number
+  low_stock_alerts: LowStockAlert[]
+  orders: OrderPipelineCounts
+  top_products: ProductProfitRow[]
+}
+
 export interface CopilotContext {
   screen: CopilotScreen
   entity_ids?: string[]
@@ -159,12 +222,16 @@ export interface ApiErrorBody {
   }
 }
 
-/** Thin client surface for Week 3 + Sprint 4. */
+/** Thin client surface for Week 3 + Sprint 4 + catalog create. */
 export interface BusinessFlowApiClient {
   getMaterials(): Promise<Material[]>
   getMaterial(id: string): Promise<Material>
+  createMaterial(body: MaterialCreate): Promise<Material>
+  updateMaterial(id: string, body: MaterialCreate): Promise<Material>
   getRecipes(): Promise<Recipe[]>
   getRecipe(id: string): Promise<Recipe>
+  createRecipe(body: RecipeCreate): Promise<Recipe>
+  updateRecipe(id: string, body: RecipeCreate): Promise<Recipe>
   getRecipeCosting(id: string): Promise<CostingSnapshot>
   postCopilotChat(body: CopilotChatRequest): Promise<CopilotChatResponse>
   getInventory(): Promise<InventoryItem[]>
@@ -177,4 +244,5 @@ export interface BusinessFlowApiClient {
   ): Promise<HitlProposal>
   rejectHitlProposal(id: string, feedback: string): Promise<HitlProposal>
   searchFoodProducts(query: string): Promise<FoodProductSearchResponse>
+  getDashboard(): Promise<DashboardSnapshot>
 }

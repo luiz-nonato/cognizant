@@ -78,6 +78,9 @@ class AdjustmentAudit:
     actor: str | None = None
 
 
+PaymentMethod = Literal["cash", "card", "pix", "bank_transfer", "other"]
+
+
 @dataclass
 class Order:
     """Customer/FG order with produce-then-ship state machine (DEC-05)."""
@@ -90,5 +93,6 @@ class Order:
     status: OrderStatus = "pending"
     cost_at_sale: float | None = None
     revenue: float | None = None
+    payment_method: PaymentMethod | None = None
     created_at: datetime = field(default_factory=utc_now)
     completed_at: datetime | None = None

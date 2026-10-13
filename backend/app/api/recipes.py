@@ -76,12 +76,7 @@ async def get_recipe_costing(
         ) from exc
 
 
-@router.post("", response_model=RecipeOut, status_code=status.HTTP_201_CREATED)
-async def create_recipe(
-    body: RecipeCreate,
-    repo: InMemoryRepository = Depends(get_repository),
-) -> RecipeOut:
-    # Validate UoM against materials up front (DEC-18).
+def _validate_lines(body: RecipeCreate, repo: InMemoryRepository) -> None:
     for line in body.lines:
         material = repo.get_material(line.material_id)
         if material is None:
@@ -107,8 +102,10 @@ async def create_recipe(
                 ),
             )
 
-    recipe = Recipe(
-        id=body.id or "",
+
+def _recipe_from_body(body: RecipeCreate, recipe_id: str = "") -> Recipe:
+    return Recipe(
+        id=recipe_id or body.id or "",
         name=body.name,
         yield_qty=body.yield_qty,
         target_margin=body.target_margin,
@@ -122,5 +119,33 @@ async def create_recipe(
             for line in body.lines
         ],
     )
-    saved = repo.upsert_recipe(recipe)
+
+
+@router.post("", response_model=RecipeOut, status_code=status.HTTP_201_CREATED)
+async def create_recipe(
+    body: RecipeCreate,
+    repo: InMemoryRepository = Depends(get_repository),
+) -> RecipeOut:
+    _validate_lines(body, repo)
+    saved = repo.upsert_recipe(_recipe_from_body(body))
+    return _to_out(saved)
+
+
+@router.put("/{recipe_id}", response_model=RecipeOut)
+async def update_recipe(
+    recipe_id: str,
+    body: RecipeCreate,
+    repo: InMemoryRepository = Depends(get_repository),
+) -> RecipeOut:
+    if repo.get_recipe(recipe_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_payload(
+                "recipe_not_found",
+                f"Recipe {recipe_id} not found",
+                {"recipe_id": recipe_id},
+            ),
+        )
+    _validate_lines(body, repo)
+    saved = repo.upsert_recipe(_recipe_from_body(body, recipe_id=recipe_id))
     return _to_out(saved)

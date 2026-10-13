@@ -15,8 +15,10 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("SECRET_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     from app.settings import get_settings
+    from app.services.hitl import reset_hitl_store
 
     get_settings.cache_clear()
+    reset_hitl_store()
 
     from app.deps import get_repository
     from app.main import create_app
@@ -32,3 +34,4 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     app.dependency_overrides.clear()
     get_repository.cache_clear()
     get_settings.cache_clear()
+    reset_hitl_store()
