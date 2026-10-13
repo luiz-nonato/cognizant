@@ -1,0 +1,176 @@
+/**
+ * API contracts aligned with FastAPI schemas (Week 3 + Sprint 4).
+ */
+
+export type CurrencyCode = 'USD' | 'BRL'
+
+export type CopilotScreen = 'recipe' | 'inventory' | 'orders' | 'dashboard'
+
+export type ItemType = 'RM' | 'FG'
+
+export type OrderStatus = 'pending' | 'in_progress' | 'completed'
+
+export type HitlAction =
+  | 'inventory_adjust'
+  | 'order_create'
+  | 'order_produce'
+  | 'order_ship'
+
+export type HitlStatus = 'pending' | 'approved' | 'rejected' | 'failed'
+
+export interface Material {
+  id: string
+  name: string
+  uom: string
+  list_price: number
+  reorder_point: number
+  last_purchase_price: number | null
+  supplier_id?: string | null
+}
+
+export interface RecipeLine {
+  material_id: string
+  quantity: number
+  uom: string
+}
+
+export interface Recipe {
+  id: string
+  name: string
+  /** Finished-goods units produced by this recipe (API field `yield`). */
+  yield: number
+  target_margin: number
+  finished_product_sku: string | null
+  lines: RecipeLine[]
+}
+
+export interface CostingLine {
+  material_id: string
+  material_name: string
+  quantity: number
+  uom: string
+  input_unit_cost: number
+  line_cost: number
+  contribution_pct: number
+  input_unit_cost_method: string
+}
+
+export interface CostingSnapshot {
+  recipe_id: string
+  recipe_name: string
+  finished_product_sku: string | null
+  yield: number
+  target_margin: number
+  total_material_cost: number
+  unit_cost: number
+  recommended_sell_price: number
+  /** DEC-16: "n/a / zero cost" when unit_cost is 0; else null */
+  recommended_price_label: string | null
+  input_unit_cost_method: string
+  lines: CostingLine[]
+  grounding_timestamp: string
+}
+
+export interface InventoryItem {
+  item_type: ItemType
+  sku: string
+  name: string
+  uom: string
+  on_hand: number
+  reorder_point: number
+  unit_cost: number | null
+}
+
+export interface Order {
+  id: string
+  recipe_id: string
+  fg_sku: string
+  quantity: number
+  sell_price: number
+  status: OrderStatus
+  cost_at_sale: number | null
+  revenue: number | null
+  created_at: string
+  completed_at: string | null
+}
+
+export interface HitlProposal {
+  id: string
+  action: HitlAction
+  summary: string
+  payload: Record<string, unknown>
+  status: HitlStatus
+  created_at: string
+  resolved_at: string | null
+  feedback: string | null
+  result: Record<string, unknown> | null
+  error: {
+    code: string
+    message: string
+    details?: Record<string, unknown>
+  } | null
+}
+
+export interface HitlProposalCreate {
+  action: HitlAction
+  summary: string
+  payload: Record<string, unknown>
+}
+
+export interface FoodProductSuggestion {
+  name: string
+  brands: string | null
+  barcode: string | null
+  quantity_label: string | null
+  source: string
+}
+
+export interface FoodProductSearchResponse {
+  query: string
+  products: FoodProductSuggestion[]
+}
+
+export interface CopilotContext {
+  screen: CopilotScreen
+  entity_ids?: string[]
+}
+
+export interface CopilotChatRequest {
+  message: string
+  context: CopilotContext
+}
+
+export interface CopilotChatResponse {
+  reply: string
+  citations: CostingSnapshot | Record<string, unknown>
+  grounding_timestamp: string
+  agent: string
+}
+
+export interface ApiErrorBody {
+  error: {
+    code: string
+    message: string
+    details?: Record<string, unknown>
+  }
+}
+
+/** Thin client surface for Week 3 + Sprint 4. */
+export interface BusinessFlowApiClient {
+  getMaterials(): Promise<Material[]>
+  getMaterial(id: string): Promise<Material>
+  getRecipes(): Promise<Recipe[]>
+  getRecipe(id: string): Promise<Recipe>
+  getRecipeCosting(id: string): Promise<CostingSnapshot>
+  postCopilotChat(body: CopilotChatRequest): Promise<CopilotChatResponse>
+  getInventory(): Promise<InventoryItem[]>
+  getOrders(): Promise<Order[]>
+  createHitlProposal(body: HitlProposalCreate): Promise<HitlProposal>
+  listHitlProposals(status?: HitlStatus): Promise<HitlProposal[]>
+  approveHitlProposal(
+    id: string,
+    feedback?: string | null,
+  ): Promise<HitlProposal>
+  rejectHitlProposal(id: string, feedback: string): Promise<HitlProposal>
+  searchFoodProducts(query: string): Promise<FoodProductSearchResponse>
+}

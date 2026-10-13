@@ -529,7 +529,7 @@ No new market figures were introduced in this SAD. No file named `srd.md` exists
 | SA14 | Supplier +10% what-if is P1 only (DEC-13, PA19) and is outside the P0 copilot | Promote FR-WHATIF later |
 | SA15 | CSV files use the FR-EXP column order and names exactly | Bookkeeper handoff breaks if columns drift |
 | SA16 | Postgres is the Compose default; another relational engine is acceptable if `setup.md` records it (SAD-Q4) | Repin the data service |
-| SA18 | PRD DEC-05 says “consume RM per recipe × order qty.” When yield is not 1, Build uses ADR-16: `line_quantity × (order_quantity / yield)` of each input, and finished goods increase by `order_quantity`. `@product-mgr` should sync that sentence into DEC-05. Until then, this SAD is the build contract for the movement | Implementing the shorter DEC-05 phrase literally when yield is not 1 consumes a full batch per finished unit |
+| SA18 | **Resolved 2026-10-13.** PRD DEC-05 and FR-ORD already state produce as `RM consumed = line_quantity × (order_quantity / yield)` with FG `+= order_quantity`, matching ADR-16. No further product-mgr sync required for this assumption | Reverting DEC-05 to a “recipe × order qty” shorthand without the yield divisor |
 | SA17 | Operator override (2026-10-05): the MVP supports Brazilian Real and US Dollar. One active currency per deployment (`BRL` or `USD`). No FX conversion and no document that mixes the two. PRD DEC-07 still says one currency with default code `USD`; `@product-mgr` should sync that sentence. The LLM spend ceiling is stated in both currencies; the amounts stay operator-owned (SAD-Q3) | If the same deployment must hold BRL and USD together, that is the deferred FX epic (SAD-Q5), not this override |
 
 ---
@@ -561,13 +561,13 @@ Build may proceed on DEC-* and the assumptions above.
 
 | Field | Value |
 | --- | --- |
-| Timestamp | 2026-10-13T11:40:00-03:00 |
+| Timestamp | 2026-10-13T13:30:00-03:00 |
 | Persona id | `system-arch` |
-| Action | `create-sad --mvp` |
+| Action | retire stale SA18 (DEC-05 already yield-synced); confirm ADR-11 / DEC-15 WA non-rewrite remains build contract |
 | Resolved `AAMAD_TARGET_RUNTIME` | `crewai` |
 | Runtime resolution | Environment variable unset in this session. PRD Metadata, adapter-registry default, and example config `runtime.target: crewai` agree (SA1) |
-| Prompt trace | Review 2026-10-13. DEC-15–DEC-20 stay locked, including P0 manual adjust, P1 what-if, DEC-17 default sell price, DEC-18 `uom_mismatch`, and the four-field `/copilot/chat` envelope. Two build contracts added: ADR-15 one specialist per kickoff with `output_pydantic`; ADR-16 yield-scaled produce, and DEC-15 adjustments that do not rewrite weighted-average cost. Week 3 slice recorded in Implementation Guidance |
+| Prompt trace | Operator follow-up 2026-10-13 residual debt: SA18 contradicted synced PRD DEC-05; PRD DEC-15 updated to match ADR-11 |
 | Output path | `project-context/1.define/sad.md` (Define-phase architecture artifact; Build personas read this path) |
-| Tools | Read PRD, MRD, template, example config; write this file |
+| Tools | edit Assumptions SA18 + Audit |
 | Temperature / determinism | N/A (artifact authoring in the IDE) |
-| Handoff | `@project.mgr` `*setup-project`. Optional `@product.mgr` `*create-stories`. Feature SFS on demand via `*create-sfs` |
+| Handoff | Week 3 Define residual closed. Next inventory/orders Build must implement ADR-16 produce and DEC-15 / ADR-11 adjust (EC-004, EC-018) |

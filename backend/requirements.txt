@@ -1,0 +1,13 @@
+# Pinned for Week 3 foundation. Prefer: py -3.12 -m pip install -r requirements.txt
+# Requires Python >=3.12,<3.14 (CrewAI requires_python).
+fastapi==0.143.0
+uvicorn[standard]==0.54.0
+sqlalchemy==2.0.44
+psycopg[binary]==3.3.6
+pydantic==2.12.5
+pydantic-settings==2.15.0
+python-dotenv==1.2.4
+crewai==1.15.27
+pytest==8.4.2
+httpx==0.28.1
+ruff==0.14.0

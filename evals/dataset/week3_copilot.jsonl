@@ -1,0 +1,2 @@
+{"id": "copilot-seed-recipe", "ec": ["EC-005"], "message": "Explain this recipe unit cost", "context": {"screen": "recipe", "entity_ids": ["rcp-bread-001"]}, "expect_agent": "costing_analyst"}
+{"id": "copilot-zero-cost-grounding", "ec": ["EC-005", "EC-017"], "setup": "zero_cost_via_api", "message": "What is the recommended price?", "context": {"screen": "recipe", "entity_ids": ["rcp-zero-eval-001"]}, "expect_agent": "costing_analyst"}

@@ -1,0 +1,52 @@
+# CrewAI tasks — BusinessFlow (adapter-crewai, ADR-15)
+# Week 3: validate_costing → explain_costing for costing_analyst only.
+
+validate_costing:
+  description: >
+    Validate that the following engine costing JSON is present and internally
+    consistent for narration. Do not invent or change any numbers.
+    Confirm unit_cost, line contributions, recommended_sell_price, and
+    recommended_price_label (when unit_cost is 0) are usable.
+    Engine JSON:
+    {engine_json}
+    User message (context only; do not invent figures from it):
+    {user_message}
+  expected_output: >
+    A short validation note confirming the engine JSON fields needed for
+    costing explanation are present. No new numeric calculations.
+  agent: costing_analyst
+
+explain_costing:
+  description: >
+    Narrate the validated engine costing JSON for the recipe screen.
+    Return ONLY the four-field copilot response:
+    reply (string), citations (object = exact engine JSON), grounding_timestamp
+    (ISO-8601 from the engine JSON), agent ("costing_analyst").
+    Every number in reply MUST appear in citations. Do not invent a second
+    set of numbers. Use input_unit_cost_method and recommended_price_label
+    when present.
+    Engine JSON (must be copied into citations):
+    {engine_json}
+    User message:
+    {user_message}
+  expected_output: >
+    Structured object with fields reply, citations, grounding_timestamp, agent.
+    citations equals the engine JSON. agent is costing_analyst.
+  agent: costing_analyst
+
+# --- Stubs for later P0 screens ---
+
+explain_inventory:
+  description: STUB — not wired in Week 3. Inventory specialist task.
+  expected_output: STUB
+  agent: inventory_analyst
+
+explain_orders:
+  description: STUB — not wired in Week 3. Order specialist task.
+  expected_output: STUB
+  agent: order_analyst
+
+explain_dashboard:
+  description: STUB — not wired in Week 3. Insights specialist task.
+  expected_output: STUB
+  agent: insights_analyst

@@ -1,0 +1,120 @@
+{
+  "summary": {
+    "EC-001": {
+      "pass": 3,
+      "fail": 0,
+      "deferred": 0
+    },
+    "EC-002": {
+      "pass": 4,
+      "fail": 0,
+      "deferred": 0
+    },
+    "EC-017": {
+      "pass": 2,
+      "fail": 0,
+      "deferred": 0
+    },
+    "EC-016": {
+      "pass": 2,
+      "fail": 0,
+      "deferred": 0
+    },
+    "EC-005": {
+      "pass": 2,
+      "fail": 0,
+      "deferred": 0
+    },
+    "EC-004": {
+      "pass": 0,
+      "fail": 0,
+      "deferred": 1
+    }
+  },
+  "results": [
+    {
+      "ec_id": "EC-001",
+      "item_id": "golden-seed-bread",
+      "passed": true,
+      "detail": "unit cost and contributions match"
+    },
+    {
+      "ec_id": "EC-002",
+      "item_id": "golden-seed-bread",
+      "passed": true,
+      "detail": "price matches 1.6666666666666667"
+    },
+    {
+      "ec_id": "EC-001",
+      "item_id": "golden-two-line",
+      "passed": true,
+      "detail": "unit cost and contributions match"
+    },
+    {
+      "ec_id": "EC-002",
+      "item_id": "golden-two-line",
+      "passed": true,
+      "detail": "price matches 3.3333333333333335"
+    },
+    {
+      "ec_id": "EC-001",
+      "item_id": "yield-not-one",
+      "passed": true,
+      "detail": "unit cost and contributions match"
+    },
+    {
+      "ec_id": "EC-002",
+      "item_id": "yield-not-one",
+      "passed": true,
+      "detail": "price matches 4.166666666666667"
+    },
+    {
+      "ec_id": "EC-002",
+      "item_id": "margin-reject",
+      "passed": true,
+      "detail": "margin >= 1 rejected"
+    },
+    {
+      "ec_id": "EC-017",
+      "item_id": "zero-cost",
+      "passed": true,
+      "detail": "zero-cost price and label OK"
+    },
+    {
+      "ec_id": "EC-016",
+      "item_id": "uom-mismatch-engine",
+      "passed": true,
+      "detail": "uom_mismatch without conversion"
+    },
+    {
+      "ec_id": "EC-005",
+      "item_id": "copilot-seed-recipe",
+      "passed": true,
+      "detail": "envelope + grounding OK"
+    },
+    {
+      "ec_id": "EC-017",
+      "item_id": "copilot-zero-cost-grounding",
+      "passed": true,
+      "detail": "zero-cost price and label OK"
+    },
+    {
+      "ec_id": "EC-005",
+      "item_id": "copilot-zero-cost-grounding",
+      "passed": true,
+      "detail": "envelope + grounding OK"
+    },
+    {
+      "ec_id": "EC-016",
+      "item_id": "api-uom-mismatch",
+      "passed": true,
+      "detail": "uom_mismatch without conversion"
+    },
+    {
+      "ec_id": "EC-004",
+      "item_id": "produce-absent",
+      "passed": null,
+      "detail": "Deferred: no produce/ship inventory APIs; yield used only for costing (unit_cost = total / yield). Evidence: POST /orders/produce, /inventory/produce, /produce -> 404; backend.md Gaps."
+    }
+  ]
+}

@@ -82,7 +82,7 @@ These close MRD items the market document deferred to the PRD. Architects must i
 | DEC-12 | BOM depth | Recipes are **one production level**: FG ← materials (and optionally other registered items treated as inputs). Nested recipes (FG used as input to another FG) **out of P0** (P1 = FR-BOM2). **Supersedes MRD A7 for P0** (A7’s “1–2 levels” applies only if FR-BOM2 is pulled in). | A7 |
 | DEC-13 | Chat | Copilot chat is **P0** for “why this cost / what is low stock / order pipeline,” bounded (not on every widget). Persist-free supplier what-if (+10%) is **P1 only** (FR-WHATIF) — not conditional P0. | S25, Q7 |
 | DEC-14 | Market slides | Pitch uses Mordor TAM S4 and SAM S5 only. | Q8, R9 |
-| DEC-15 | Manual inventory adjust | **P0 required**: owner may adjust RM/FG on-hand with **reason required** and audit log. Primary path for opening balances alongside first purchase (PA13). Closes PRD-Q11. | PRD-Q11, PA13, FR-INV |
+| DEC-15 | Manual inventory adjust | **P0 required**: owner may adjust RM/FG on-hand with **reason required** and audit log; resulting on-hand must not go negative (DEC-06). The adjustment changes **on-hand only** and does **not** rewrite the weighted-average unit cost, the last purchase price, or the recipe unit cost (SAD ADR-11). Primary path for opening balances alongside first purchase (PA13). Closes PRD-Q11. | PRD-Q11, PA13, FR-INV, DEC-03, DEC-06 |
 | DEC-16 | Zero unit cost price | If unit cost is 0, recommended sell price API returns numeric **0**; UI shows label **“n/a / zero cost”** (not a blank or alternate sentinel). | FR-PRC |
 | DEC-17 | Order default sell price | New order defaults sell price to **recommended** price (FR-PRC); user may override. Reports always use the order’s actual sell price (PA12). | FR-ORD, PA12 |
 | DEC-18 | UoM mismatch | Recipe line UoM **must equal** the material’s UoM. On mismatch, API/UI **reject** with a named error (`uom_mismatch`); no silent conversion in P0 (FR-UOM is P1). | FR-RCP, FR-UOM |
@@ -339,7 +339,7 @@ Each feature is specified as a user story plus constraints. Trace: S25 operator 
 - **Story:** As P1, I want on-hand quantity for raw materials and finished goods, so that I can see what I can make and sell.
 - **Acceptance:**
   - On-hand is always derived from transactional movements (opening + purchases + production + shipments + manual adjust).
-  - Manual adjustment is **P0** (DEC-15): reason required; audit log; resulting on-hand must not go negative (DEC-06).
+  - Manual adjustment is **P0** (DEC-15): reason required; audit log; resulting on-hand must not go negative (DEC-06). The movement changes on-hand only; it does not rewrite the weighted-average unit cost, the last purchase price, or the live recipe unit cost.
   - Display never shows negative on-hand (DEC-06).
 - **Dependencies:** FR-PUR, FR-ORD.
 
@@ -704,7 +704,7 @@ No new market figures were introduced in this PRD.
 | PA17 | MRD A17 | **Superseded** by DEC-05 (two-step produce/ship) | Do not implement single-step complete consume |
 | PA18 | MRD A7 (P0) | **Superseded for P0** by DEC-12 (one-level BOM); two-level only via FR-BOM2 P1 | Nested BOM in P0 |
 | PA19 | What-if | **P1 only** (DEC-13); not graded as P0 | Promote to P0 later |
-| PA20 | Kickoff | One specialist per screen per kickoff (SAD ADR-15). DEC-15–DEC-20 were not rewritten in the 2026-10-13 sync | A four-agent sequential kickoff |
+| PA20 | Kickoff | One specialist per screen per kickoff (SAD ADR-15). DEC-15 includes on-hand-only adjust (no WA rewrite), aligned with SAD ADR-11 | A four-agent sequential kickoff |
 
 MRD assumptions A1–A20 still apply where not superseded by DEC-* / PA-* (especially PA17–PA18 for A17/A7).
 
@@ -735,11 +735,11 @@ Items still needing stakeholder confirmation. **Build may proceed on DEC-* defau
 
 | Field | Value |
 | --- | --- |
-| Timestamp | 2026-10-13T11:45:00-03:00 |
+| Timestamp | 2026-10-13T13:30:00-03:00 |
 | Persona id | product-mgr |
-| Action | sync DEC-05 yield formula and one-specialist kickoff from SAD ADR-15, ADR-16, SA18. DEC-15–DEC-20 text unchanged |
+| Action | sync DEC-15 / FR-INV with SAD ADR-11: manual adjust changes on-hand only and does not rewrite weighted-average unit cost |
 | Resolved runtime | crewai (env unset; example config `runtime.target: crewai`) |
-| Prompt trace | Operator request 2026-10-13; `.cursor/agents/product-mgr.md`; `sad.md` ADR-15, ADR-16, SA18 |
+| Prompt trace | Operator follow-up 2026-10-13 after review residual debt; `sad.md` ADR-11, SA9 |
 | Tools | edit `project-context/1.define/prd.md` |
 | Temperature / determinism | N/A (artifact authoring in IDE) |
-| Handoff | Week 3 slice may start: one material, one recipe with yield, engine JSON, `costing_analyst` only |
+| Handoff | Define residual closed for Week 3. Build inventory/orders must honor DEC-15 WA non-rewrite and DEC-05 / ADR-16 yield produce |
