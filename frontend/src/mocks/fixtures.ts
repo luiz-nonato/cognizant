@@ -143,6 +143,10 @@ export function mockCopilotReply(
     citations: costing,
     grounding_timestamp: costing.grounding_timestamp,
     agent: 'costing_analyst',
+    crew_plan:
+      '### Task 1\n(mock) Validate engine JSON fields for narration.\n\n### Task 2\n(mock) Narrate unit cost and recommended price from citations only.',
+    agent_reasoning:
+      'Agent planning_config enabled (mock). Plan text mirrored in crew_plan.',
   }
 }
 

@@ -16,6 +16,10 @@ costing_analyst:
   max_iter: 8
   max_rpm: 10
   verbose: false
+  # Week 4 bonus — agent-level reasoning (CrewAI planning_config)
+  reasoning: true
+  max_reasoning_attempts: 2
+  reasoning_effort: low
 
 # --- Stubs for later P0 screens (not attached to Week 3 kickoff) ---
 

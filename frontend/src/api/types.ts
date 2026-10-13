@@ -145,6 +145,10 @@ export interface CopilotChatResponse {
   citations: CostingSnapshot | Record<string, unknown>
   grounding_timestamp: string
   agent: string
+  /** Week 4 bonus — crew-level plan text (null when fallback / none captured). */
+  crew_plan?: string | null
+  /** Week 4 bonus — agent reasoning status / note. */
+  agent_reasoning?: string | null
 }
 
 export interface ApiErrorBody {

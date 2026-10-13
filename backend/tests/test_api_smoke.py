@@ -89,7 +89,10 @@ def test_week3_smoke_material_recipe_costing_copilot(client):
     )
     assert copilot.status_code == 200
     body = copilot.json()
-    assert set(body.keys()) == {"reply", "citations", "grounding_timestamp", "agent"}
+    required = {"reply", "citations", "grounding_timestamp", "agent"}
+    assert required.issubset(body.keys())
+    # Week 4 bonus optional artifacts (null on deterministic fallback).
+    assert set(body.keys()) - required <= {"crew_plan", "agent_reasoning"}
     assert body["agent"] == "costing_analyst"
     assert body["citations"]["unit_cost"] == snap["unit_cost"]
     assert body["citations"]["recommended_sell_price"] == snap["recommended_sell_price"]
@@ -125,9 +128,13 @@ def test_copilot_recipe_fallback_envelope_ec005(client):
     )
     assert res.status_code == 200
     body = res.json()
-    assert set(body.keys()) == {"reply", "citations", "grounding_timestamp", "agent"}
+    required = {"reply", "citations", "grounding_timestamp", "agent"}
+    assert required.issubset(body.keys())
+    assert set(body.keys()) - required <= {"crew_plan", "agent_reasoning"}
     assert body["agent"] == "costing_analyst"
     assert body["grounding_timestamp"]
+    assert body.get("crew_plan") is None
+    assert body.get("agent_reasoning") is None
     assert body["citations"]["unit_cost"] == 1.0
     assert body["citations"]["recommended_sell_price"] == 1.0 / 0.6
     disagreements = _reply_numbers_agree_with_citations(body["reply"], body["citations"])

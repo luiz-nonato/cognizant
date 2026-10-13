@@ -8,7 +8,7 @@ interface CopilotPanelProps {
 
 /**
  * Non-streaming recipe copilot (CrewAI runtime contract).
- * Uses apiClient (live when VITE_API_BASE_URL is set; else mock).
+ * Week 4 bonus: shows optional crew_plan / agent_reasoning when present.
  */
 export function CopilotPanel({ recipeId }: CopilotPanelProps) {
   const [message, setMessage] = useState('Why is this unit cost what it is?')
@@ -41,7 +41,8 @@ export function CopilotPanel({ recipeId }: CopilotPanelProps) {
       <h3 id="copilot-heading">Costing copilot</h3>
       <p className="muted">
         Non-streaming chat (CrewAI). Explains engine figures for this recipe —
-        agent does not invent a second set of numbers.
+        agent does not invent a second set of numbers. When the LLM path runs,
+        optional crew plan and agent reasoning artifacts appear below the reply.
       </p>
 
       <form className="copilot-form" onSubmit={onSubmit}>
@@ -84,6 +85,24 @@ export function CopilotPanel({ recipeId }: CopilotPanelProps) {
               </dd>
             </div>
           </dl>
+
+          {(response.crew_plan || response.agent_reasoning) && (
+            <div className="copilot-artifacts">
+              <h4>Planning &amp; reasoning</h4>
+              {response.crew_plan && (
+                <>
+                  <p className="muted">Crew plan</p>
+                  <pre className="hitl-payload">{response.crew_plan}</pre>
+                </>
+              )}
+              {response.agent_reasoning && (
+                <>
+                  <p className="muted">Agent reasoning</p>
+                  <pre className="hitl-payload">{response.agent_reasoning}</pre>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>

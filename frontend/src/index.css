@@ -453,6 +453,17 @@ textarea {
   margin-bottom: 1rem;
 }
 
+.copilot-artifacts {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bf-border);
+}
+
+.copilot-artifacts h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
 @media (max-width: 720px) {
   .app-body {
     grid-template-columns: 1fr;

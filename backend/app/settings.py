@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     crewai_storage_dir: str = ""
     copilot_timeout_seconds: int = 60
 
+    # Week 4 bonus — Crew planning + agent reasoning artifacts
+    crew_planning_enabled: bool = True
+    crew_planning_llm: str = ""  # empty → reuse LLM_MODEL
+    agent_reasoning_enabled: bool = True
+    max_reasoning_attempts: int = 2
+
     # External REST (Sprint 4 — Open Food Facts)
     open_food_facts_base_url: str = "https://world.openfoodfacts.org"
     external_http_timeout_seconds: float = 10.0

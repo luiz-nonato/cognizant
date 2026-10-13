@@ -22,7 +22,8 @@ Integration pattern: **REST** (lesson Pattern 1); HITL: **FastAPI + React approv
 | Inventory + Orders list views | Done (Sprint 4) |
 | HITL propose → approve/reject for writes | Done (Sprint 4) |
 | External Open Food Facts lookup | Done (Sprint 4) |
-| SSE / WebSockets / CrewAI Flows `@human_feedback` | Deferred |
+| Week 4 bonus: Crew `planning` + agent `planning_config` artifacts on copilot JSON | Done (no SSE) |
+| SSE / WebSockets / CrewAI Flows `@persist` / `@human_feedback` | Deferred |
 
 ---
 
