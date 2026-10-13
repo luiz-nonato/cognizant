@@ -35,7 +35,7 @@ Mini ERP for small and medium entrepreneurs (makers).
 | Purpose | Hand off MVP product contract without re-deriving market research |
 | Inputs | This file; `project-context/1.define/mrd.md`; operator concept (S25) |
 | Next file | SAD via `@system.arch`; optional stories via `@product-mgr` `*create-stories` |
-| Do | Implement P0 modules only; costing/inventory as deterministic services; agents narrate validated JSON (R3); honor DEC-01–DEC-20 |
+| Do | Implement P0 modules only; costing/inventory as deterministic services; one specialist per kickoff; agents narrate validated JSON (R3); honor DEC-01–DEC-20 |
 | Do not | Native GL/tax/MES/auto-PO/connectors (A20); LLM write to stock; blend Mordor/MRFR TAM (R9); nested BOM or what-if in P0 |
 
 ---
@@ -72,7 +72,7 @@ These close MRD items the market document deferred to the PRD. Architects must i
 | DEC-02 | Unit cost composition | v1 unit cost = **material COGS only**: sum over recipe lines of `quantity × current_input_unit_cost`. No labor, overhead, waste %, packaging-as-labor, or landed extras in v1. | Q3 |
 | DEC-03 | Input unit cost method | **Weighted average** from recorded purchases (qty-weighted). Last purchase price is stored and shown as history, not used as the live recipe cost unless no purchases exist (then use registered list/last price). FIFO/lots deferred. | MRD dim. 2 |
 | DEC-04 | Cost vs sale | **Current recipe cost** is always live from DEC-03. **Cost at sale** is a snapshot written when an order reaches `completed`. Margin actual vs target uses cost at sale, never silently rewritten. | R1 |
-| DEC-05 | Inventory on order | **Make-to-stock-capable, two-step:** (1) Transition `pending` → `in_progress` **produces**: consume RM per recipe × order qty; increment FG by order qty. (2) Transition `in_progress` → `completed` **ships**: decrement FG by order qty; write cost-at-sale and revenue. `pending` has no stock effect. **Supersedes MRD A17** (A17’s single-step complete consume is obsolete). | Q4, A17, R7 |
+| DEC-05 | Inventory on order | **Make-to-stock-capable, two-step.** Order quantity is finished-goods units; recipe `yield` > 0. (1) `pending` → `in_progress` **produces**: for each recipe line, `RM consumed = line_quantity × (order_quantity / yield)`; FG increases by `order_quantity`. (2) `in_progress` → `completed` **ships**: decrement FG by `order_quantity`; write cost-at-sale and revenue. `pending` has no stock effect. **Supersedes MRD A17** (A17’s single-step complete consume is obsolete). | Q4, A17, R7, SAD ADR-16 |
 | DEC-06 | Blocking rules | Block `in_progress` if any RM on-hand would go negative. Block `completed` if FG on-hand would go negative. No silent negative stock. | R7 |
 | DEC-07 | Geography | Capstone **locale-neutral**: UI English; **one currency** (default code `USD`, display symbol from config); no tax engine; no food-lot/allergen rules. Compliance treated as demo PII minimization until Q1 is answered for a real launch. | Q1, Q2, R4, A9 |
 | DEC-08 | Vertical | **Generic makers** (food, cosmetics, crafts, light assembly) with the same recipe model. No vertical-specific fields in MVP. | Q2 |
@@ -130,7 +130,7 @@ BusinessFlow is a **mini-ERP**: master data (materials, recipes, suppliers, cust
 
 ### Strategic rationale
 
-**Why multi-agent:** the weekly loop is several specialist jobs (cost explanation, stock/reorder narrative, order pipeline, KPI digest). A sequential specialist crew matches that decomposition. Agents are **not** optimal as the ledger: numbers must be reproducible (R3). Therefore the product is **hybrid**: deterministic domain engine + advisory crew.
+**Why multi-agent:** the weekly loop is several specialist jobs (cost explanation, stock/reorder narrative, order pipeline, KPI digest). Each kickoff runs **one specialist** for the screen that asked. Agents are **not** optimal as the ledger: numbers must be reproducible (R3). Therefore the product is **hybrid**: deterministic domain engine + advisory crew.
 
 **Business / operational value (capstone):** demonstrate a complete maker ops loop plus grounded AI. Commercial hypothesis (post-capstone, A14): USD 15–80/month or freemium vs Katana from USD 299/month (S17) and Odoo manufacturing implementation often USD 8k–40k (S22–S23).
 
@@ -193,16 +193,16 @@ Product constraints for `@system.arch`. Runtime field names below are **CrewAI-s
 
 | Control | MVP value |
 | --- | --- |
-| Process | Sequential |
+| Process | Sequential only inside one kickoff: validate engine JSON, then narrate. Not a four-agent sequence |
 | Delegation | `allow_delegation=false` |
 | Memory | `false` (reproducibility) |
 | `max_iter` | ≤ 12 per task |
 | `max_retry_limit` | ≥ 2 |
 | `max_rpm` | Set at crew level (SAD/backend) |
 | Tools | Least privilege; **no** stock/order mutation tools |
-| Kickoff | User-initiated chat or “explain this screen”; not on every keystroke |
+| Kickoff | One specialist per screen. Recipe → `costing_analyst`; inventory → `inventory_analyst`; orders → `order_analyst`; dashboard → `insights_analyst`. User-initiated; not on every keystroke |
 
-**Collaboration:** coordinator/user message → costing **or** inventory **or** orders **or** insights task (or short sequential chain: fetch JSON → narrate). No hierarchical manager unless SAD justifies it in Audit.
+**Collaboration:** one specialist per kickoff. The only sequential chain is validate JSON → narrate for that specialist. No hierarchical manager. The narrate task returns the copilot envelope (`reply`, `citations`, `grounding_timestamp`, `agent`) via `output_pydantic` (SAD ADR-15).
 
 **Delegation boundary:** agents never call APIs that POST/PATCH inventory or orders. Frontend/backend HTTP APIs perform writes after human confirmation.
 
@@ -381,7 +381,7 @@ Each feature is specified as a user story plus constraints. Trace: S25 operator 
 - **Acceptance:**
   - Order: customer, FG SKU, qty > 0, sell price (user-entered; **default = recommended** per DEC-17; override allowed).
   - States: `pending` → `in_progress` → `completed`. No skip of `in_progress` in P0 (keeps DEC-05 atomic).
-  - `pending` → `in_progress`: produce (DEC-05); fail with which materials are short if DEC-06.
+  - `pending` → `in_progress`: produce (DEC-05). For each line, consume `line_quantity × (order_quantity / yield)` of that material and increment FG by `order_quantity`. Fail with which materials are short if DEC-06.
   - `in_progress` → `completed`: ship (DEC-05); snapshot unit cost, sell price, margin; fail if FG short.
   - Cancel: allowed from `pending` only in P0 (no stock). Cancel from later states is P1 (reversals).
 - **Dependencies:** FR-CUS, FR-RCP, FR-INV.
@@ -658,7 +658,7 @@ Do not claim patented novelty (R12, A11).
 ## Quality assurance checklist
 
 - [x] Requirements traceable to MRD, S25, or recorded Assumptions (FR RTM table)
-- [x] Technical specifications feasible with CrewAI adapter (sequential, YAML, no memory, engine-owned writes)
+- [x] Technical specifications feasible with CrewAI adapter (one specialist per kickoff; sequential only for validate-then-narrate; YAML; no memory; engine-owned writes)
 - [x] Success metrics aligned with problem statement (first costed SKU, margin visibility, alerts, pipeline)
 - [x] MVP vs Future Work boundaries explicit (P0 / P1 / P2, A20; what-if P1 hard)
 - [x] Market sections included (MRD not skipped)
@@ -674,6 +674,7 @@ Do not claim patented novelty (R12, A11).
 | PRD-S0 | `project-context/1.define/mrd.md` (P1–P3, R1–R13, A1–A20, Q1–Q9, S1–S26, operator concept) |
 | S25 | Operator product concept, 2026-09-28 |
 | S26 | AAMAD: `.cursor/templates/prd-template.md`, `.cursor/agents/product-mgr.md`, `aamad.config.example.yml`, `AGENTS.md` |
+| S27 | `project-context/1.define/sad.md` ADR-15, ADR-16, SA18; operator review 2026-10-13 |
 | S1–S24 | As cited in MRD Sources table (market and competitor URLs) |
 
 No new market figures were introduced in this PRD.
@@ -694,7 +695,7 @@ No new market figures were introduced in this PRD.
 | PA8 | Q6 | CSV enough (DEC-10) | Connector epic |
 | PA9 | Q7 | Capstone values domain engine and agents equally | Shrink or grow FR-AGT |
 | PA10 | Q8 | Mordor TAM/SAM only on slides (DEC-14) | Pitch rewrite |
-| PA11 | Yield | Recipe yield field exists; unit cost divides by yield | If yield always 1, simplify |
+| PA11 | Yield | Recipe yield field exists and is > 0. Unit cost divides by yield. Produce consumption is `line_quantity × (order_quantity / yield)` (DEC-05, SAD ADR-16) | If yield always 1, the formula still holds: consumption = line quantity × order quantity |
 | PA12 | Sell price on order | Defaults to recommended (DEC-17); user may override; reports use actual sell price | Force recommended-only (no override) |
 | PA13 | Opening stock | First purchase and/or **P0 manual adjust** (DEC-15) | Purchases-only seeding |
 | PA14 | Date filters | Dashboard default **all-time** (DEC-20) | Add date-range epic |
@@ -703,6 +704,7 @@ No new market figures were introduced in this PRD.
 | PA17 | MRD A17 | **Superseded** by DEC-05 (two-step produce/ship) | Do not implement single-step complete consume |
 | PA18 | MRD A7 (P0) | **Superseded for P0** by DEC-12 (one-level BOM); two-level only via FR-BOM2 P1 | Nested BOM in P0 |
 | PA19 | What-if | **P1 only** (DEC-13); not graded as P0 | Promote to P0 later |
+| PA20 | Kickoff | One specialist per screen per kickoff (SAD ADR-15). DEC-15–DEC-20 were not rewritten in the 2026-10-13 sync | A four-agent sequential kickoff |
 
 MRD assumptions A1–A20 still apply where not superseded by DEC-* / PA-* (especially PA17–PA18 for A17/A7).
 
@@ -733,11 +735,11 @@ Items still needing stakeholder confirmation. **Build may proceed on DEC-* defau
 
 | Field | Value |
 | --- | --- |
-| Timestamp | 2026-09-28T18:10:00-03:00 |
+| Timestamp | 2026-10-13T11:45:00-03:00 |
 | Persona id | product-mgr |
-| Action | quality-pass patch (lock DEC-13/15–20, FR RTM, CSV contract; supersede A7/A17) |
+| Action | sync DEC-05 yield formula and one-specialist kickoff from SAD ADR-15, ADR-16, SA18. DEC-15–DEC-20 text unchanged |
 | Resolved runtime | crewai (env unset; example config `runtime.target: crewai`) |
-| Prompt trace | Prior create-prd; quality-pass findings; `.cursor/agents/product-mgr.md`; `mrd.md` sync |
-| Tools | edit `project-context/1.define/prd.md`; edit `project-context/1.define/mrd.md` |
+| Prompt trace | Operator request 2026-10-13; `.cursor/agents/product-mgr.md`; `sad.md` ADR-15, ADR-16, SA18 |
+| Tools | edit `project-context/1.define/prd.md` |
 | Temperature / determinism | N/A (artifact authoring in IDE) |
-| Handoff | `@system.arch` sync SAD SA9 / FR-WHATIF / DEC-15–20; optional `*create-stories` |
+| Handoff | Week 3 slice may start: one material, one recipe with yield, engine JSON, `costing_analyst` only |

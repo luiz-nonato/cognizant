@@ -23,7 +23,7 @@ This document is the blueprint for Build-phase personas. Prefer lean MVP views; 
 **MVP Design Principles**:
 
 - Customer / operator feedback first — design center is P1 (maker / artisan); P2 secondary; P3 influencer via CSV export (MRD Personas; PRD §2).
-- Minimal viable agent set and simplest orchestration that delivers core value — sequential CrewAI crew of four advisory specialists; the domain engine owns every numeric write (DEC-11, R3, A8).
+- Minimal viable agent set and simplest orchestration that delivers core value — one specialist per kickoff; the domain engine owns every numeric write (DEC-11, R3, A8, ADR-15).
 - Observable by default — request logs, inventory mutation ids, order transitions, crew start/stop, costing I/O without secrets (PRD §3 Infrastructure).
 - Automated deploy scaffolding from day 1 when Deliver phase is in scope — compose stack plus CI lint/test/build only; no live deploy without operator authorization (delivery-workflow).
 
@@ -41,17 +41,19 @@ This document is the blueprint for Build-phase personas. Prefer lean MVP views; 
 | ADR-01 | Hybrid architecture: deterministic domain engine (source of truth) plus optional CrewAI advisory copilot | Numbers stay reproducible; agents explain validated JSON only | DEC-11, R3, A8 |
 | ADR-02 | Frontend: responsive web — forms, tables, and dashboard primary; chat is a copilot, not the sole UI | Matches the maker weekly ops loop; human confirmation on writes | PRD §6; MRD dim. 3 |
 | ADR-03 | Backend: Python API plus domain services; Postgres (or equivalent) persistence | Example-config language; transactional inventory | PRD Metadata; NFR-R1; PRD §3 |
-| ADR-04 | Runtime: CrewAI sequential process; YAML agents/tasks; `memory=false`; `allow_delegation=false` | Adapter contract and PRD §3 controls | adapter-crewai; PA3; A3 |
+| ADR-04 | CrewAI YAML; `memory=false`; `allow_delegation=false`. Each kickoff runs one specialist. `Process.sequential` applies only to that kickoff’s two steps: validate the engine JSON, then narrate. The four specialists are not one sequential crew | Build copies this block. A four-agent chain would violate the screen routing in ADR-15 | adapter-crewai; PRD §3; ADR-15 |
 | ADR-05 | Copilot is non-streaming request/response for MVP; hard timeout then a user-visible error | Simpler FE/BE contract | NFR-P4, FR-AGT |
 | ADR-06 | Single authenticated owner per deployment; session or token auth | Owner-primary MVP | DEC-09, Q5, A6 |
 | ADR-07 | One active currency per deployment, chosen from `USD` or `BRL`; one location; English UI. No FX conversion and no mixed-currency documents | Operator requires Real and Dollar support. DEC-07 still forbids a second currency inside one ledger; FX stays P2 | DEC-07, Q1, operator 2026-10-05 |
 | ADR-08 | Hosting: local or smallest compose stack (web + API + DB) | Capstone infrastructure | PRD §3 Infrastructure |
 | ADR-09 | UI: TypeScript web frontend, system theme, minimal visual style, `prefer_modals: false`; concrete framework pinned in `setup.md` | Example config UI prefs; PRD does not mandate a vendor UI library | PA2; `aamad.config.example.yml` |
 | ADR-10 | Dashboard aggregates default to all-time; no date-range filter in P0 | Locked product decision | DEC-20, PA14, FR-DSH |
-| ADR-11 | Manual RM/FG adjustment is a P0 engine operation: reason required, audit log written, resulting on-hand must not go negative | Opening balances and corrections without a second ledger | DEC-15, DEC-06, PA13, FR-INV |
+| ADR-11 | Manual RM/FG adjustment is P0 and required. Reason required. Audit log written. Resulting on-hand must not go negative. The adjustment changes on-hand only and does not rewrite the weighted-average unit cost, the last purchase price, or the recipe unit cost | Opening balances and corrections without a second ledger, and without moving the cost basis | DEC-15, DEC-03, DEC-06, PA13, FR-INV |
 | ADR-12 | Recipe line UoM must equal the material UoM; mismatch returns error code `uom_mismatch` and performs no conversion | Keeps P0 costing unambiguous | DEC-18, FR-RCP, FR-UOM |
 | ADR-13 | New order sell price defaults to the recommended price; the user may override; reports use the order’s actual sell price | Pricing advice stays advisory; revenue stays factual | DEC-17, PA12, FR-ORD, FR-RPT |
 | ADR-14 | Money fields use the deployment currency only. `CURRENCY_CODE` is `USD` (symbol `$`) or `BRL` (symbol `R$`). The API rejects any other code and any payload whose currency differs from the deployment | Supports Real and Dollar without an exchange-rate engine | Operator 2026-10-05; SA17 |
+| ADR-15 | One specialist per kickoff, chosen by screen. Recipe → `costing_analyst` only. Inventory → `inventory_analyst` only. Orders → `order_analyst` only. Dashboard → `insights_analyst` only. The narrate task uses `output_pydantic` for the `/copilot/chat` response. `memory=false` and `allow_delegation=false` stay on every agent | The HTTP contract is the task output. A free-form narrative would drop `reply`, `citations`, `grounding_timestamp`, and `agent` | FR-AGT; PRD §3; review 2026-10-13 |
+| ADR-16 | Produce scales inputs by yield. Order quantity is finished-goods units. Each raw-material consumption is `line_quantity × (order_quantity / yield)`. Finished goods increase by `order_quantity` | Unit cost already divides by yield. Consuming “recipe × order quantity” double-counts when yield is not 1 | DEC-05, DEC-02, PA11, FR-RCP |
 
 ---
 
@@ -70,38 +72,63 @@ Hybrid system: **Domain Engine** (authoritative) + **Advisory Crew** (natural-la
 
 - **Memory / session**: CrewAI `memory=false` for reproducibility (PRD §3; adapter-crewai). Each chat turn is request-scoped. No cross-session agent memory in MVP.
 - **Tool / MCP**: Read-only tools bound to engine snapshot endpoints. No MCP servers that can write. No stock, order, price, or recipe mutation tools (DEC-11, NFR-S3).
-- **Kickoff**: User-initiated chat or an “Explain” action on a recipe or the dashboard. Not on every keystroke or widget refresh (PRD §3, DEC-13).
+- **Kickoff**: User-initiated chat or an “Explain” action on one screen. Not on every keystroke or widget refresh (PRD §3, DEC-13). One HTTP call starts one specialist. It does not start the other three.
 - **Out of P0 crew scope**: persist-free supplier what-if (FR-WHATIF) is P1 only (DEC-13). The copilot must not simulate a +10% supplier change in MVP.
+
+**Screen routing (one specialist per kickoff)**:
+
+| Screen | `context.screen` | Agent started | Task id |
+| --- | --- | --- | --- |
+| Recipe (cost stack and price) | `recipe` | `costing_analyst` only | `explain_costing` |
+| Inventory and alerts | `inventory` | `inventory_analyst` only | `explain_inventory` |
+| Orders | `orders` | `order_analyst` only | `explain_orders` |
+| Dashboard | `dashboard` | `insights_analyst` only | `explain_dashboard` |
+
+An unknown screen is a `400` with error code `unknown_screen`. There is no manager agent and no fallback that runs every specialist.
 
 **Task / Turn Orchestration**:
 
 ```
-User message or Explain action
-  → API loads structured engine JSON (IDs and numbers) server-side
-  → Route to one specialist task, or a short sequential chain:
-       validate JSON → narrate
-  → Response: short narrative plus bullet figures that match the payload
+User message or Explain on one screen
+  → API loads that screen’s engine JSON on the server
+  → Kickoff contains that screen’s specialist only
+  → Inside that kickoff, sequential steps are only:
+       1. validate the engine JSON
+       2. narrate it
+  → Task output_pydantic is the /copilot/chat response
 ```
 
-- **Dependencies**: Engine read APIs succeed before narration. If the engine has no data, the agent says so (FR-AGT).
-- **Expected outputs**: Plain narrative. Every cited number equals the attached JSON (eval: zero disagreeing numeric claims).
-- **Context passing**: Explicit `Task.context` when the chain is fetch/validate then narrate. No hierarchical manager (PRD §3).
-- **Error handling**: Timeout or engine failure returns a user-visible error and no partial invented cost table (FR-AGT, NFR-R2). `max_retry_limit` ≥ 2.
+- **Dependencies**: The engine read for that screen succeeds before narration. If the engine has no data, `reply` says so and `citations` is an empty object (FR-AGT).
+- **Expected output**: The narrate task sets `output_pydantic` to the copilot response model. The HTTP body is that model. It is not a plain narrative that the API later wraps. Every number in `reply` equals a field in `citations`, and `citations` equals the engine JSON (EC-005).
+- **Context passing**: `Task.context` links validate → narrate for the same specialist. It does not link one specialist to another (PRD §3).
+- **Error handling**: Timeout or engine failure returns the error envelope and no partial invented cost table (FR-AGT, NFR-R2). `max_retry_limit` ≥ 2.
 - **Cancellation / timeout**: Wall-clock cap **60 seconds**, then abort the kickoff and return the error envelope (documents the NFR-P4 example; operator may replace the value — SAD-Q2).
 - **Performance budgets**:
   - `max_iter` ≤ 12 per task (`costing_analyst` ≤ 8).
   - `max_rpm` set at crew level in `backend.md` for budget stability (PRD §3; exact rpm is an implementation pin, not a product KPI).
   - LLM spend is on-demand only. PRD §7 bounds capstone chat to a “tens of USD” band. The hard ceiling is operator-owned and must be recorded in both `USD` and `BRL` (SAD-Q3, EC-013, ADR-14). The numeric ceilings are not set in this SAD.
 
+**Copilot response model (`output_pydantic`)**:
+
+| Field | Type | Rule |
+| --- | --- | --- |
+| `reply` | string | Short explanation. Cites only numbers present in `citations` |
+| `citations` | object | Copy of the engine snapshot for this screen. The model does not calculate a new cost |
+| `grounding_timestamp` | string | ISO-8601 time of the engine snapshot |
+| `agent` | string | The specialist id from the routing table. For a recipe screen this value is `costing_analyst` |
+
+`config/tasks.yaml` sets `output_pydantic` to this model on `explain_costing`, `explain_inventory`, `explain_orders`, and `explain_dashboard`.
+
 **Runtime-Conditional Configuration**:
 
-- **crewai** (selected runtime):
-  - **Crew composition**: the four agents above. No manager agent.
-  - **Process**: sequential.
-  - **Config files**: `config/agents.yaml`, `config/tasks.yaml`, `crew.py` (or equivalent entrypoint).
-  - **Controls**: `allow_delegation=false`; `memory=false`; `max_iter` ≤ 12 (≤ 8 for costing); `max_retry_limit` ≥ 2; `max_rpm` at crew level; `max_execution_time` aligned to the 60-second copilot cap.
-  - **Task context chaining**: used for validate-then-narrate.
-  - **Tools**: YAML-referenced read-only tools, validated before kickoff.
+- **crewai** (selected runtime). Build copies this block:
+  - **Kickoff composition**: exactly one agent and that agent’s narrate task. The other three agents stay defined in YAML and are not attached to this kickoff.
+  - **Process**: `Process.sequential` for the two steps of that kickoff only (validate JSON, then narrate). Do not put all four specialists in one crew process.
+  - **Config files**: `config/agents.yaml`, `config/tasks.yaml`, `crew.py` (or equivalent entrypoint that selects the crew by `context.screen`).
+  - **Controls on every agent**: `allow_delegation=false`; `memory=false`; `max_iter` ≤ 12 (≤ 8 for `costing_analyst`); `max_retry_limit` ≥ 2; `max_rpm` at crew level; `max_execution_time` aligned to the 60-second copilot cap.
+  - **Task output**: `output_pydantic` is the four-field copilot response. `expected_output` names those four fields.
+  - **Task context chaining**: validate → narrate, same specialist only.
+  - **Tools**: YAML-referenced read-only tools, validated before kickoff. No write tools.
   - **Logging**: Prompt Trace and lifecycle events under `project-context/2.build/logs`; secrets redacted.
 - **claude-agent-sdk**: not selected.
 - **cursor-sdk**: not selected.
@@ -162,12 +189,14 @@ The primary surface is HTTP JSON domain APIs plus one copilot endpoint. Chat is 
 | `/orders` and state transitions | `pending` → `in_progress` → `completed`; cancel from `pending` only | FR-ORD, DEC-05, DEC-06, DEC-17 |
 | `/reports`, `/dashboard` | Product P&L and all-time ops aggregates | FR-RPT, FR-DSH, DEC-04, DEC-20 |
 | `/export/csv` | Purchases, inventory on-hand, completed sales | FR-EXP, DEC-10 |
-| `/copilot/chat` | Server-built engine JSON → CrewAI kickoff → narrative | FR-AGT, DEC-11 |
+| `/copilot/chat` | Server-built engine JSON → one specialist kickoff → `output_pydantic` response | FR-AGT, DEC-11, ADR-15 |
 
 **Copilot contract (MVP, non-streaming)**:
 
-- **Request**: `{ "message": string, "context": { "screen"?: string, "entity_ids"?: string[] } }`. The server loads `engine_payload`. The client does not supply the numbers the agent will cite.
-- **Response**: `{ "reply": string, "citations": object, "grounding_timestamp": string, "agent": string }` or the error envelope.
+This envelope is the API contract. The narrate task emits it through `output_pydantic`. The handler returns that object unchanged.
+
+- **Request**: `{ "message": string, "context": { "screen": "recipe" | "inventory" | "orders" | "dashboard", "entity_ids"?: string[] } }`. `screen` is required. The server loads `engine_payload` for that screen. The client does not supply the numbers the agent will cite.
+- **Response**: `{ "reply": string, "citations": object, "grounding_timestamp": string, "agent": string }` or the error envelope. `agent` is the single specialist that ran.
 - **Streaming**: deferred (ADR-05).
 - **Validation**: authenticated; message length limited; notes and free-text fields sanitized and truncated before the LLM (NFR-S4, R8).
 - **Rate limiting**: crew-level `max_rpm`, plus an optional per-session request throttle documented in `backend.md`.
@@ -183,18 +212,36 @@ The primary surface is HTTP JSON domain APIs plus one copilot endpoint. Chat is 
 | Input unit cost | Weighted average of recorded purchases (qty-weighted). Last purchase price is history. If no purchases exist, use the registered list/last price. FIFO deferred | DEC-03 |
 | Recommended price | `recommended_sell_price = unit_cost / (1 − target_margin)` with `0 ≤ target_margin < 1`. Reject margin ≥ 100%. If `unit_cost` is 0, return numeric **0** | DEC-01, DEC-16 |
 | List price | Stored separately from the recommendation. Copying the recommendation into the list price is a human action | FR-PRC |
-| Produce | `pending` → `in_progress`: consume RM per recipe × order qty; increment FG by order qty. `pending` has no stock effect | DEC-05 |
+| Produce | `pending` → `in_progress` consumes raw material and increments finished goods. `pending` has no stock effect. See the yield formula under this table | DEC-05, ADR-16 |
 | Ship | `in_progress` → `completed`: decrement FG by order qty; write immutable cost-at-sale, sell price, and revenue fields | DEC-04, DEC-05, NFR-R3 |
 | Cancel | Allowed from `pending` only in P0. Later-state reversal is FR-CANCEL (P1) | FR-ORD |
 | Blocks | Block `in_progress` if any RM on-hand would go negative. Block `completed` if FG on-hand would go negative. Name the short SKUs in `details` | DEC-06 |
 | Order sell price | Default to the current recommended price; user override allowed; reports use the stored actual sell price | DEC-17, PA12 |
 | Margin report | For completed orders only: `revenue = qty × sell_price`; `cogs = qty × cost_at_sale`; `profit = revenue − cogs`; `margin_pct = profit / revenue` when revenue > 0. Show target vs actual when a target is stored on the SKU | FR-RPT, DEC-04 |
 | Suggested reorder | Advisory only: `suggested_reorder_qty = max(0, (2 × reorder_point) − on_hand)`. Not ML. Not an auto-PO | DEC-19, FR-ALT |
-| Manual adjust | P0 required. Reason required. Append an audit-log row. Resulting on-hand must not go negative | DEC-15, DEC-06, FR-INV |
+| Manual adjust | P0 required. Reason required. Append an audit-log row. Resulting on-hand must not go negative. The movement changes on-hand only. It does not rewrite the weighted-average unit cost, the last purchase price, or the live recipe unit cost | DEC-15, DEC-03, DEC-06, FR-INV, ADR-11 |
 | Dashboard period | All-time. No date-range filter in P0 | DEC-20 |
 | Alerts | An alert exists if and only if on-hand ≤ reorder point | NFR-A2, FR-ALT |
 
 All produce, ship, purchase, and adjustment writes run in a single database transaction (NFR-R1, R7).
+
+**Produce formula (yield)**:
+
+The order quantity is a count of finished-goods units. Recipe `yield` is how many of those units one batch produces, and `yield` must be greater than 0. Each recipe line quantity is the input for one batch.
+
+For every recipe line when the order moves `pending` → `in_progress`:
+
+`raw_material_consumed = line_quantity × (order_quantity / yield)`
+
+Finished goods increase by `order_quantity`, not by `order_quantity × yield`.
+
+Worked fixture: yield is 10, the flour line is 2 kg, the order is 5 finished units. Flour consumed is `2 × (5 / 10) = 1` kg. Finished goods increase by 5. Unit cost stays `total material cost / yield` and does not change because an order was produced.
+
+When yield is 1, consumption equals `line_quantity × order_quantity`. That is the same arithmetic, not a second rule.
+
+**Manual adjustment and cost (DEC-15)**:
+
+The owner may adjust RM or FG on-hand. The reason is required, the audit log stores the movement, and the resulting on-hand must not go negative. The adjustment changes the balance only. It does not rewrite the weighted-average unit cost, the last purchase price, or the recipe’s unit cost. Weighted average changes when a purchase is recorded (DEC-03), not when stock is adjusted.
 
 **CSV column contract (P0, FR-EXP)**:
 
@@ -282,8 +329,12 @@ Agents are not on the write path (DEC-11).
 
 ```
 pending (no stock effect; cancel allowed)
-  → in_progress (produce: −RM, +FG) — blocked if any RM would go negative
-  → completed (ship: −FG, snapshot cost-at-sale) — blocked if FG would go negative
+  → in_progress
+       RM −= line_quantity × (order_quantity / yield) for each line
+       FG += order_quantity
+       blocked if any RM would go negative
+  → completed (ship: FG −= order_quantity, snapshot cost-at-sale)
+       blocked if FG would go negative
 ```
 
 **Read and dashboard path**:
@@ -295,10 +346,11 @@ UI → Domain API aggregates (all-time) → DB → JSON → widgets
 **Copilot path**:
 
 ```
-UI chat or Explain → AuthN → Copilot API
-  → engine read model (authoritative JSON)
-  → CrewAI sequential narrate task
-  → narrative → UI
+UI chat or Explain on one screen → AuthN → POST /copilot/chat
+  → engine JSON for that screen only
+  → kickoff of that screen’s specialist only
+       validate JSON → narrate
+  → output_pydantic { reply, citations, grounding_timestamp, agent }
 ```
 
 **External integrations (MVP only)**:
@@ -369,8 +421,8 @@ Thresholds come from PRD §5 and §7 or from a locked DEC formula. Where the PRD
 | EC-001 | Accuracy | Golden recipes match material unit cost and contribution % | 100% match | Code-based | NFR-A1; DEC-02; DEC-03; PRD §7 |
 | EC-002 | Accuracy | Recommended price matches `unit_cost / (1 − target_margin)`; margin ≥ 100% rejected | 100% match | Code-based | DEC-01; FR-PRC |
 | EC-003 | Accuracy | Alert exists iff on-hand ≤ reorder point | 100% on fixtures | Code-based | NFR-A2 |
-| EC-004 | Accuracy | Produce and ship match DEC-05; on-hand never goes negative | 100% on fixtures | Code-based | NFR-A3; DEC-05; DEC-06 |
-| EC-005 | Accuracy | Agent numeric claims that disagree with the attached engine JSON | 0 in the eval set | Code parse of cited numbers; LLM judge for the narrative | FR-AGT; PRD §7 |
+| EC-004 | Accuracy | Produce consumes `line_quantity × (order_quantity / yield)` and increments FG by `order_quantity`, including a fixture whose yield is not 1; ship decrements FG by `order_quantity`; on-hand never goes negative | 100% on fixtures | Code-based | NFR-A3; DEC-05; DEC-06; ADR-16 |
+| EC-005 | Accuracy | `output_pydantic` fields `reply`, `citations`, `grounding_timestamp`, and `agent` are present; `agent` is the one specialist for the screen; numbers in `reply` disagree with `citations` | 0 disagreements in the eval set | Code-based schema check plus parse of cited numbers | FR-AGT; ADR-15; PRD §7 |
 | EC-006 | Latency | Recipe cost and recommended price API p95, excluding LLM | ≤ 500 ms local | Code-based | NFR-P1 |
 | EC-007 | Latency | Dashboard aggregate p95 at demo volume | ≤ 1 s | Code-based | NFR-P2 |
 | EC-008 | Latency | Order state transition p95 | ≤ 1 s | Code-based | NFR-P3 |
@@ -383,7 +435,7 @@ Thresholds come from PRD §5 and §7 or from a locked DEC formula. Where the PRD
 | EC-015 | Accuracy | Scripted ops loop; dashboard matches reports, inventory, and orders | Pass | Human scripted | PRD §7 |
 | EC-016 | Accuracy | UoM mismatch returns `uom_mismatch` and does not convert | 100% on fixtures | Code-based | DEC-18; FR-RCP |
 | EC-017 | Accuracy | Unit cost 0 yields recommended price numeric 0 | 100% on fixtures | Code-based | DEC-16 |
-| EC-018 | Accuracy | Manual adjust requires a reason, writes an audit row, and cannot drive on-hand negative | 100% on fixtures | Code-based | DEC-15; DEC-06 |
+| EC-018 | Accuracy | Manual adjust requires a reason, writes an audit row, cannot drive on-hand negative, and leaves weighted-average unit cost unchanged | 100% on fixtures | Code-based | DEC-15; DEC-03; DEC-06; ADR-11 |
 | EC-019 | Accuracy | Completed-order cost-at-sale unchanged after later purchase or recipe edits | 100% on fixtures | Code-based | DEC-04; NFR-R3 |
 | EC-020 | Accuracy | New order defaults sell price to recommended; reports use the stored actual price after override | 100% on fixtures | Code-based | DEC-17; PA12 |
 
@@ -404,14 +456,26 @@ Thresholds come from PRD §5 and §7 or from a locked DEC formula. Where the PRD
 
 ## Implementation Guidance for AI Development Agents
 
+**First slice (Week 3)**. Define is ready for this slice once ADR-15 and ADR-16 are in this file. Build this slice before the rest of the P0 loop:
+
+1. One raw material.
+2. One recipe with an explicit yield.
+3. Engine JSON for that recipe: unit cost, each line’s contribution, recommended price, and the zero-cost case (numeric price `0`, label **“n/a / zero cost”**).
+4. `POST /copilot/chat` with `context.screen = "recipe"` starts only `costing_analyst`. The task `output_pydantic` returns `reply`, `citations`, `grounding_timestamp`, and `agent: "costing_analyst"`. `citations` repeats the engine JSON. The reply does not invent a second set of numbers.
+5. Frontend shows the material, the recipe yield, the engine figures, and that copilot response. Backend owns the formulas.
+
+After that slice is green, continue the remaining P0 screens. Each of those screens still calls only its own specialist.
+
+Later modules:
+
 1. Foundation setup (`@project.mgr`, `setup.md`) — pin the frontend framework, Python version, Compose services, and `.env.example` names.
-2. Module 1 — CrewAI YAML and a kickoff that narrates a fixture JSON snapshot. No write tools.
-3. Module 2 — domain API and transactional engine (costing, inventory, orders, CSV). The engine is the source of truth the crew will later read.
-4. Module 3 — frontend forms, tables, dashboard, and chat shell against the contracts in §3 and §4.
-5. Module 4 — integration, then QA (unit, integration, smoke, and §9 evals).
+2. Module 1 — YAML for all four agents, with a kickoff factory that attaches one of them. The Week 3 path attaches `costing_analyst` only. No write tools.
+3. Module 2 — domain API and transactional engine, including the yield produce formula and DEC-15 adjustments that do not rewrite weighted-average cost.
+4. Module 3 — frontend for the Week 3 slice first, then the other P0 screens against §3 and §4.
+5. Module 4 — integration, then QA (unit, integration, smoke, and §9 evals). EC-001, EC-002, EC-004, EC-005, EC-016, and EC-017 cover the Week 3 slice.
 6. Security assessment (`security.md`), then Deliver (`deploy.md`, user guide). Deliver does not change application logic.
 
-Run each build module in its own session. Do not implement P1 or P2 items while closing P0.
+Run each build module in its own session. Do not implement P1 or P2 items while closing P0. Do not run the four specialists in one kickoff.
 
 ---
 
@@ -457,7 +521,7 @@ No new market figures were introduced in this SAD. No file named `srd.md` exists
 | SA6 | Dashboard default period is all-time (DEC-20, ADR-10) | Add a date-range epic |
 | SA7 | Copilot MVP is non-streaming, with a 60-second hard cap taken from the PRD’s NFR-P4 example | Streaming epic, or a different timeout if the operator answers SAD-Q2 |
 | SA8 | Frontend framework vendor is chosen in `setup.md`; this SAD requires a responsive TypeScript web app only (ADR-09) | Follow a later PRD stack mandate |
-| SA9 | Manual inventory adjustment is **required in P0** (DEC-15): reason, audit log, no negative result. Opening stock may come from the first purchase and/or an adjustment (PA13) | Only if a stakeholder overrides DEC-15 |
+| SA9 | Manual inventory adjustment is **required in P0** (DEC-15): reason, audit log, no negative result, and no rewrite of weighted-average unit cost (ADR-11). Opening stock may come from the first purchase and/or an adjustment (PA13) | Only if a stakeholder overrides DEC-15 |
 | SA10 | Capstone values the domain engine and the agents together (PA9, Q7). Chat is P0; what-if is not | Shrink or grow FR-AGT |
 | SA11 | MRD A1–A20 still apply where DEC-* / PA-* do not supersede them. A7 is superseded for P0 by DEC-12. A17 is superseded by DEC-05 | Reconcile any remaining conflict under Open Questions |
 | SA12 | Order sell price defaults to the recommended price and may be overridden; reports use the actual stored price (DEC-17, PA12) | Recommended-price-only orders |
@@ -465,6 +529,7 @@ No new market figures were introduced in this SAD. No file named `srd.md` exists
 | SA14 | Supplier +10% what-if is P1 only (DEC-13, PA19) and is outside the P0 copilot | Promote FR-WHATIF later |
 | SA15 | CSV files use the FR-EXP column order and names exactly | Bookkeeper handoff breaks if columns drift |
 | SA16 | Postgres is the Compose default; another relational engine is acceptable if `setup.md` records it (SAD-Q4) | Repin the data service |
+| SA18 | PRD DEC-05 says “consume RM per recipe × order qty.” When yield is not 1, Build uses ADR-16: `line_quantity × (order_quantity / yield)` of each input, and finished goods increase by `order_quantity`. `@product-mgr` should sync that sentence into DEC-05. Until then, this SAD is the build contract for the movement | Implementing the shorter DEC-05 phrase literally when yield is not 1 consumes a full batch per finished unit |
 | SA17 | Operator override (2026-10-05): the MVP supports Brazilian Real and US Dollar. One active currency per deployment (`BRL` or `USD`). No FX conversion and no document that mixes the two. PRD DEC-07 still says one currency with default code `USD`; `@product-mgr` should sync that sentence. The LLM spend ceiling is stated in both currencies; the amounts stay operator-owned (SAD-Q3) | If the same deployment must hold BRL and USD together, that is the deferred FX epic (SAD-Q5), not this override |
 
 ---
@@ -496,12 +561,12 @@ Build may proceed on DEC-* and the assumptions above.
 
 | Field | Value |
 | --- | --- |
-| Timestamp | 2026-10-05T15:05:00-03:00 |
+| Timestamp | 2026-10-13T11:40:00-03:00 |
 | Persona id | `system-arch` |
 | Action | `create-sad --mvp` |
 | Resolved `AAMAD_TARGET_RUNTIME` | `crewai` |
 | Runtime resolution | Environment variable unset in this session. PRD Metadata, adapter-registry default, and example config `runtime.target: crewai` agree (SA1) |
-| Prompt trace | Operator instruction 2026-10-05: currency support must include Brazilian Real and US Dollar, including the LLM spend ceiling. Recorded as SA17 / ADR-07 / ADR-14. Numeric ceilings were not supplied and were not invented. PRD DEC-07 remains the written product default until `@product-mgr` syncs it |
+| Prompt trace | Review 2026-10-13. DEC-15–DEC-20 stay locked, including P0 manual adjust, P1 what-if, DEC-17 default sell price, DEC-18 `uom_mismatch`, and the four-field `/copilot/chat` envelope. Two build contracts added: ADR-15 one specialist per kickoff with `output_pydantic`; ADR-16 yield-scaled produce, and DEC-15 adjustments that do not rewrite weighted-average cost. Week 3 slice recorded in Implementation Guidance |
 | Output path | `project-context/1.define/sad.md` (Define-phase architecture artifact; Build personas read this path) |
 | Tools | Read PRD, MRD, template, example config; write this file |
 | Temperature / determinism | N/A (artifact authoring in the IDE) |
